@@ -5,6 +5,8 @@
 namespace reference_line {
 class BSplineReferenceLine : public ReferenceLineBase {
 public:
+    BSplineReferenceLine() {};
+
     nav_msgs::msg::Path smoothPath(const nav_msgs::msg::Path& path) override;
 private:
     std::vector<double> buildKNot(const int n, const int p, const int type);

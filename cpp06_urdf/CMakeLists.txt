@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 include_directories(include)
 
@@ -27,7 +28,6 @@ add_executable(local_planner_node
   include/local_planner_node.h
   include/planner/reference_line/reference_line_factory.h
   include/planner/reference_line/reference_line_base.h
-  include/planner/reference_line/slide_window.h
   src/planner/reference_line/slide_window.cpp
   src/planner/reference_line/b_spline.cpp
 )
@@ -35,6 +35,7 @@ ament_target_dependencies(local_planner_node
   rclcpp
   nav_msgs
   geometry_msgs
+  Eigen3
 )
 
 install(TARGETS
