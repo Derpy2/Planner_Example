@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<!-- Simple differential-drive style car -->
+<robot name="mycar">
+
+  <!-- base_footprint ground projection, used as the robot frame in nav -->
+  <link name="base_footprint"/>
+
+  <!-- Chassis -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.5 0.3 0.1"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0.2 0.4 0.9 1.0"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <!-- lift the body so wheels touch the ground -->
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+  </joint>
+
+  <!-- 4 wheels -->
+  <link name="wheel_fl">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.04"/>
+      </geometry>
+      <material name="black"><color rgba="0.1 0.1 0.1 1.0"/></material>
+    </visual>
+  </link>
+  <joint name="wheel_fl_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="wheel_fl"/>
+    <origin xyz="0.18  0.17 -0.05" rpy="0 0 0"/>
+  </joint>
+
+  <link name="wheel_fr">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.04"/>
+      </geometry>
+      <material name="black"><color rgba="0.1 0.1 0.1 1.0"/></material>
+    </visual>
+  </link>
+  <joint name="wheel_fr_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="wheel_fr"/>
+    <origin xyz="0.18 -0.17 -0.05" rpy="0 0 0"/>
+  </joint>
+
+  <link name="wheel_rl">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.04"/>
+      </geometry>
+      <material name="black"><color rgba="0.1 0.1 0.1 1.0"/></material>
+    </visual>
+  </link>
+  <joint name="wheel_rl_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="wheel_rl"/>
+    <origin xyz="-0.18  0.17 -0.05" rpy="0 0 0"/>
+  </joint>
+
+  <link name="wheel_rr">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.04"/>
+      </geometry>
+      <material name="black"><color rgba="0.1 0.1 0.1 1.0"/></material>
+    </visual>
+  </link>
+  <joint name="wheel_rr_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="wheel_rr"/>
+    <origin xyz="-0.18 -0.17 -0.05" rpy="0 0 0"/>
+  </joint>
+
+</robot>
