@@ -15,7 +15,11 @@ find_package(Eigen3 REQUIRED)
 
 include_directories(include)
 
-add_executable(global_planner_node src/global_planner_node.cpp include/global_planner_node.h)
+add_executable(global_planner_node
+  src/map/static_map.cpp
+  src/planner/global_planner/a_star.cpp
+  src/global_planner_node.cpp
+  include/global_planner_node.h)
 ament_target_dependencies(global_planner_node
   rclcpp
   nav_msgs
