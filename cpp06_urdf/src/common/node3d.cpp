@@ -27,7 +27,7 @@ bool Node3D::isInRange(const Node3D& goal) const {
   return (dx * dx) + (dy * dy) < constants::dubinsShotDistance;
 }
 
-Node3D* Node3D::createSuccessor(const int i) {
+std::shared_ptr<Node3D> Node3D::createSuccessor(const int i) {
   float xSucc;
   float ySucc;
   float tSucc;
@@ -44,8 +44,9 @@ Node3D* Node3D::createSuccessor(const int i) {
     ySucc = y - dx[i - 3] * sin(t) + dy[i - 3] * cos(t);
     tSucc = normalizeHeadingRad(t - dt[i - 3]);
   }
-
-  return new Node3D(xSucc, ySucc, tSucc, g, 0, this, i);
+  std::shared_ptr<Node3D> node = std::make_shared<Node3D>(
+      xSucc, ySucc, tSucc, g, 0, shared_from_this(), i);
+  return node;
 }
 
 void Node3D::updateG() {

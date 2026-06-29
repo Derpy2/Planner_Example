@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <vector>
 
@@ -19,7 +20,7 @@ inline void getConfiguration(const Node3D* node, float& x, float& y, float& t) {
 class CollisionDetection {
  public:
   /// Constructor
-  CollisionDetection();
+  CollisionDetection(const std::shared_ptr<map::StaticMap>& map) : map_(map) {}
 
   /*!
      \brief evaluates whether the configuration is safe
@@ -53,8 +54,8 @@ class CollisionDetection {
   */
   bool configurationTest(float x, float y, float t) const;
 
-  std::vector<Node3D> GetVehiclePolygon(float x, float y, float t,
-                                        float width, float length);
+  std::vector<Node3D> getVehiclePolygon(float x, float y, float t, float width,
+                                        float length) const;
 
  private:
   std::shared_ptr<map::StaticMap> map_;

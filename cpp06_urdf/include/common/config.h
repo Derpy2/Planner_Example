@@ -5,7 +5,7 @@ namespace common {
 namespace constants {
 
 static const float vehicle_width = 0.4;
-static const float vehicle_lenght = 0.5;
+static const float vehicle_length = 0.5;
 
 // Hybrid A star config
 /// [m] --- The minimum turning radius of the vehicle

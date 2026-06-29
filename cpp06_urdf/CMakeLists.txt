@@ -16,12 +16,16 @@ find_package(Eigen3 REQUIRED)
 find_package(ompl REQUIRED)
 
 include_directories(include)
-include_directories(/usr/include/ompl-1.5)
+include_directories(${OMPL_INCLUDE_DIRS})
 include_directories(${EIGEN3_INCLUDE_DIRS})
 
 add_executable(global_planner_node
   src/map/static_map.cpp
   src/planner/global_planner/a_star.cpp
+  src/planner/global_planner/hybrid_a_star.cpp
+  src/planner/global_planner/dubins.cpp
+  src/common/node3d.cpp
+  src/common/collision_detection.cpp
   src/global_planner_node.cpp
   include/global_planner_node.h)
 ament_target_dependencies(global_planner_node
@@ -30,8 +34,8 @@ ament_target_dependencies(global_planner_node
   geometry_msgs
   tf2_ros
   tf2_geometry_msgs
-  ompl
 )
+target_link_libraries(global_planner_node ${OMPL_LIBRARIES})
 
 add_executable(local_planner_node
   src/local_planner_node.cpp
@@ -63,6 +67,27 @@ if(BUILD_TESTING)
   set(ament_cmake_copyright_FOUND TRUE)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_hybrid_a_star
+    test/test_hybrid_a_star.cpp
+    src/map/static_map.cpp
+    src/planner/global_planner/hybrid_a_star.cpp
+    src/planner/global_planner/dubins.cpp
+    src/common/node3d.cpp
+    src/common/collision_detection.cpp
+    src/planner/global_planner/a_star.cpp
+  )
+  target_include_directories(test_hybrid_a_star PUBLIC include)
+  target_include_directories(test_hybrid_a_star PUBLIC ${OMPL_INCLUDE_DIRS})
+  ament_target_dependencies(test_hybrid_a_star
+    rclcpp
+    nav_msgs
+    geometry_msgs
+    tf2_ros
+    tf2_geometry_msgs
+  )
+  target_link_libraries(test_hybrid_a_star ${OMPL_LIBRARIES})
 endif()
 
 ament_package()

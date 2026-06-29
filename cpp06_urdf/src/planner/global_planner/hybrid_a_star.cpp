@@ -34,17 +34,17 @@ nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
   node3d_.resize(width * height * depth);
 
   updateH(start, goal);
+  std::shared_ptr<Node3D> start_ptr = std::make_shared<Node3D>(start);
 
-  start.open();
-  O.push(std::make_shared<Node3D>(start));
+  start_ptr->open();
+  O.push(start_ptr);
 
   idx_pred = start.setIdx(width, height);
-  node3d_[idx_pred] = std::make_shared<Node3D>(start);
-
+  node3d_[idx_pred] = start_ptr;
   std::shared_ptr<Node3D> node_pred, node_succ;
 
   while (!O.empty()) {
-    node_pred = std::make_shared<Node3D>(O.top());
+    node_pred = O.top();
     idx_pred = node_pred->setIdx(width, height);
     iterations++;
 
@@ -53,34 +53,35 @@ nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
       continue;
     } else if (node3d_[idx_pred]->isOpen()) {
       node3d_[idx_pred]->close();
-
       O.pop();
 
       if (*node_pred == goal || iterations > constants::iterations) {
         find_goal = *node_pred == goal;
+        node_succ = node_pred;
         break;
-        // return node_pred;
       }
 
       if (constants::dubinsShot && node_pred->isInRange(goal) &&
           node_pred->getPrim() < 3) {
-        node_succ = dubinsShot(*node_pred, goal, configuration_space_);
+        node_succ = dubinsShot(node_pred, goal, configuration_space_);
 
         if (node_succ != nullptr && *node_succ == goal) {
-          find_goal = *node_pred == goal;
+          find_goal = true;
           break;
         }
       }
 
       for (int i = 0; i < dir; ++i) {
-        node_succ = std::make_shared<Node3D>(node_pred->createSuccessor(i));
+        node_succ = node_pred->createSuccessor(i);
         idx_succ = node_succ->setIdx(width, height);
 
         if (node_succ->isOnGrid(width, height) &&
             configuration_space_.isTraversable(node_succ.get())) {
           node_succ->updateG();
           new_g = node_succ->getG();
-          if (!node3d_[idx_succ]->isOpen() && !node3d_[idx_succ]->isClosed()) {
+          if (node3d_[idx_succ] == nullptr ||
+              (!node3d_[idx_succ]->isOpen() &&
+               !node3d_[idx_succ]->isClosed())) {
             updateH(*node_succ, goal);
             node_succ->open();
             node3d_[idx_succ] = node_succ;
@@ -106,6 +107,11 @@ nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
 
   nav_msgs::msg::Path res_path;
 
+  if (!find_goal) {
+    std::cout << "[HybridAStar] No path found. iterations=" << iterations
+              << ", O.empty=" << O.empty() << std::endl;
+  }
+
   if (find_goal) {
     std::vector<std::shared_ptr<Node3D>> res_seq;
     int start_idx = start.setIdx(width, height);
@@ -114,6 +120,7 @@ nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
       if (node_succ->setIdx(width, height) == start_idx) {
         break;
       }
+      node_succ = node_succ->getPred();
     }
     std::reverse(res_seq.begin(), res_seq.end());
 
@@ -145,6 +152,8 @@ void HybridAStar::updateH(Node3D& start, const Node3D& goal) {
     dbEnd->setXY(goal.getX(), goal.getY());
     dbEnd->setYaw(goal.getT());
     dubinsCost = dubinsPath.distance(dbStart, dbEnd);
+    dubinsPath.freeState(dbStart);
+    dubinsPath.freeState(dbEnd);
   }
 
   if (constants::reverse && !constants::dubins) {
@@ -156,23 +165,25 @@ void HybridAStar::updateH(Node3D& start, const Node3D& goal) {
     rsEnd->setXY(goal.getX(), goal.getY());
     rsEnd->setYaw(goal.getT());
     reedsSheppCost = reedsSheppPath.distance(rsStart, rsEnd);
+    reedsSheppPath.freeState(rsStart);
+    reedsSheppPath.freeState(rsEnd);
   }
 
   start.setH(std::max(reedsSheppCost, dubinsCost));
 }
 
-std::shared_ptr<Node3D> dubinsShot(
-    Node3D& start, const Node3D& goal,
+std::shared_ptr<Node3D> HybridAStar::dubinsShot(
+    const std::shared_ptr<Node3D>& start, const Node3D& goal,
     common::CollisionDetection& configuration_space) {
   // start
-  double q0[] = {start.getX(), start.getY(), start.getT()};
+  double q0[] = {start->getX(), start->getY(), start->getT()};
   // goal
   double q1[] = {goal.getX(), goal.getY(), goal.getT()};
   // initialize the path
   DubinsPath path;
   // calculate the path
-  int init_res = 0;
-  if (!(init_res = dubins_init(q0, q1, constants::r, &path))) {
+  int init_res = dubins_init(q0, q1, constants::r, &path);
+  if (init_res != 0) {
     std::cout << "dubins_init failed: " << init_res << std::endl;
     return nullptr;
   }
@@ -181,30 +192,32 @@ std::shared_ptr<Node3D> dubinsShot(
   float x = 0.f;
   float length = dubins_path_length(&path);
 
-  std::vector<Node3D> dubinsNodes;
+  std::vector<std::shared_ptr<Node3D>> dubinsNodes;
   dubinsNodes.resize((int)(length / constants::dubinsStepSize) + 1);
-  // Node3D* dubinsNodes =
-  //     new Node3D[(int)(length / constants::dubinsStepSize) + 1];
 
   // avoid duplicate waypoint
   x += constants::dubinsStepSize;
   while (x < length) {
     double q[3];
     dubins_path_sample(&path, x, q);
-    dubinsNodes[i].setX(q[0]);
-    dubinsNodes[i].setY(q[1]);
-    dubinsNodes[i].setT(normalizeHeadingRad(q[2]));
-
+    if (dubinsNodes[i] == nullptr) {
+      dubinsNodes[i] = std::make_shared<Node3D>(
+          q[0], q[1], normalizeHeadingRad(q[2]), 0, 0, nullptr);
+    } else {
+      dubinsNodes[i]->setX(q[0]);
+      dubinsNodes[i]->setY(q[1]);
+      dubinsNodes[i]->setT(normalizeHeadingRad(q[2]));
+    }
     // collision check
-    if (configuration_space.isTraversable(&dubinsNodes[i])) {
+    if (configuration_space.isTraversable(dubinsNodes[i].get())) {
       // set the predecessor to the previous step
       if (i > 0) {
-        dubinsNodes[i].setPred(&dubinsNodes[i - 1]);
+        dubinsNodes[i]->setPred(dubinsNodes[i - 1]);
       } else {
-        dubinsNodes[i].setPred(&start);
+        dubinsNodes[i]->setPred(start);
       }
 
-      if (&dubinsNodes[i] == dubinsNodes[i].getPred()) {
+      if (dubinsNodes[i] == dubinsNodes[i]->getPred()) {
         std::cout << "looping shot";
       }
 
@@ -218,7 +231,7 @@ std::shared_ptr<Node3D> dubinsShot(
   }
 
   //  std::cout << "Dubins shot connected, returning the path" << "\n";
-  return std::make_shared<Node3D>(dubinsNodes[i - 1]);
+  return dubinsNodes[i - 1];
 }
 
 }  // namespace global_planner

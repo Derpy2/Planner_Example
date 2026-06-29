@@ -49,7 +49,7 @@ class HybridAStar : public GlobalPlannerBase {
   void updateH(Node3D& start, const Node3D& goal);
 
   std::shared_ptr<Node3D> dubinsShot(
-      Node3D& start, const Node3D& goal,
+      const std::shared_ptr<Node3D>& start, const Node3D& goal,
       common::CollisionDetection& configuration_space);
 
  private:

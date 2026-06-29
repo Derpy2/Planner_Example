@@ -18,10 +18,13 @@ class GlobalPlannerFactory {
       const GlobalPlannerType& type, const std::shared_ptr<map::StaticMap>& map,
       const rclcpp::Logger& logger) {
     switch (type) {
-      case A_STAR:
+      case A_STAR: {
         return std::make_unique<AStar>(map, logger);
-        //   case HYBRID_A_STAR:
-        //     return std::make_unique<GlobalPlannerHybridAStar>();
+      }
+      case HYBRID_A_STAR: {
+        common::CollisionDetection cd(map);
+        return std::make_unique<HybridAStar>(map, logger, cd);
+      }
       default:
         throw std::invalid_argument("Unknown globla planner type");
     }

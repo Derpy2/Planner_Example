@@ -1,13 +1,12 @@
 #include "common/collision_detection.h"
 
+#include <cmath>
+
 namespace common {
 
-CollisionDetection::CollisionDetection(shared_ptr<map::StaticMap> map)
-    : map_(map) {}
-
-std::vector<Node3D> CollisionDetection::GetVehiclePolygon(float x, float y,
+std::vector<Node3D> CollisionDetection::getVehiclePolygon(float x, float y,
                                                           float t, float width,
-                                                          float length) {
+                                                          float length) const {
   double wx, wy;
   map_->gridToWorld(x, y, wx, wy);
 
@@ -34,19 +33,19 @@ std::vector<Node3D> CollisionDetection::GetVehiclePolygon(float x, float y,
 }
 
 bool CollisionDetection::configurationTest(float x, float y, float t) const {
-  std::vector<Node3D> vehicle_polygon = GetVehiclePolygon(
+  std::vector<Node3D> vehicle_polygon = getVehiclePolygon(
       x, y, t, constants::vehicle_width, constants::vehicle_length);
-  int max_x = vehicle_polygon[0].x(), min_x = vehicle_polygon[0].x();
-  int max_y = vehicle_polygon[0].y(), min_y = vehicle_polygon[0].y();
+  float max_x = vehicle_polygon[0].getX(), min_x = vehicle_polygon[0].getX();
+  float max_y = vehicle_polygon[0].getY(), min_y = vehicle_polygon[0].getY();
   for (const auto& node : vehicle_polygon) {
     // inBound
-    if (!map_->inBounds(node.x(), node.y())) {
+    if (!map_->inBounds(node.getX(), node.getY())) {
       return false;
     }
-    max_x = std::max(max_x, node.x());
-    min_x = std::min(min_x, node.x());
-    max_y = std::max(max_y, node.y());
-    min_y = std::min(min_y, node.y());
+    max_x = std::max(max_x, node.getX());
+    min_x = std::min(min_x, node.getX());
+    max_y = std::max(max_y, node.getY());
+    min_y = std::min(min_y, node.getY());
   }
   const auto& map_msg = map_->getMapMsg();
   for (int i = min_x; i <= max_x; ++i) {

@@ -12,6 +12,7 @@ StaticMap::StaticMap() {
 
 void StaticMap::buildMap() {
   map_msg_.header.frame_id = "map";
+  map_msg_.header.stamp = rclcpp::Clock().now();
   map_msg_.info.resolution = resolution_;
   map_msg_.info.width = width_;
   map_msg_.info.height = height_;

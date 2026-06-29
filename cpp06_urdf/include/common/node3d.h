@@ -1,17 +1,18 @@
 #pragma once
 
 #include <cmath>
+#include <memory>
 
 #include "config.h"
 
 namespace common {
-class Node3D {
+class Node3D : public std::enable_shared_from_this<Node3D> {
  public:
   /// The default constructor for 3D array initialization
   Node3D() : Node3D(0, 0, 0, 0, 0, nullptr) {}
   /// Constructor for a node with the given arguments
-  Node3D(float x, float y, float t, float g, float h, const Node3D* pred,
-         int prim = 0) {
+  Node3D(float x, float y, float t, float g, float h,
+         std::shared_ptr<Node3D> pred, int prim = 0) {
     this->x = x;
     this->y = y;
     this->t = t;
@@ -46,7 +47,7 @@ class Node3D {
   /// determine whether the node is closed
   bool isClosed() const { return c; }
   /// determine whether the node is open
-  const Node3D* getPred() const { return pred; }
+  std::shared_ptr<Node3D> getPred() const { return pred; }
 
   // SETTER METHODS
   /// set the x position
@@ -76,7 +77,7 @@ class Node3D {
     o = false;
   }
   /// set a pointer to the predecessor of the node
-  void setPred(const Node3D* pred) { this->pred = pred; }
+  void setPred(std::shared_ptr<Node3D> pred) { this->pred = pred; }
 
   // UPDATE METHODS
   /// Updates the cost-so-far for the node x' coming from its predecessor. It
@@ -98,7 +99,7 @@ class Node3D {
 
   // SUCCESSOR CREATION
   /// Creates a successor in the continous space.
-  Node3D* createSuccessor(const int i);
+  std::shared_ptr<Node3D> createSuccessor(const int i);
 
   // CONSTANT VALUES
   /// Number of possible directions
@@ -130,7 +131,7 @@ class Node3D {
   /// the motion primitive of the node
   int prim;
   /// the predecessor pointer
-  const Node3D* pred;
+  std::shared_ptr<Node3D> pred;
 };
 
 }  // namespace common
