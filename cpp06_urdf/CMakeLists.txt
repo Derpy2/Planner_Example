@@ -11,9 +11,13 @@ find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(ompl REQUIRED)
 
 include_directories(include)
+include_directories(/usr/include/ompl-1.5)
+include_directories(${EIGEN3_INCLUDE_DIRS})
 
 add_executable(global_planner_node
   src/map/static_map.cpp
@@ -25,6 +29,8 @@ ament_target_dependencies(global_planner_node
   nav_msgs
   geometry_msgs
   tf2_ros
+  tf2_geometry_msgs
+  ompl
 )
 
 add_executable(local_planner_node

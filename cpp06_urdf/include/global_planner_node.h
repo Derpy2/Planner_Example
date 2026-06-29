@@ -21,7 +21,8 @@ class GlobalPlannerNode : public rclcpp::Node {
       const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
   void goalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
-  void planAndPublish(double sx, double sy, double gx, double gy);
+  void planAndPublish(const geometry_msgs::msg::Pose& start,
+                      const geometry_msgs::msg::Pose goal);
   void publishRobotPose();
   static double yawFromQuaternion(const geometry_msgs::msg::Quaternion& q);
   static void setYaw(geometry_msgs::msg::Quaternion& q, double yaw);

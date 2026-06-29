@@ -13,7 +13,7 @@ GlobalPlannerNode::GlobalPlannerNode() : Node("global_planner_node") {
   map_ = std::make_shared<map::StaticMap>();
 
   global_planner_ = global_planner::GlobalPlannerFactory::CreateGlobalPlanner(
-      global_planner::A_STAR, map_, get_logger());
+      global_planner::HYBRID_A_STAR, map_, get_logger());
 
   map_pub_ = create_publisher<nav_msgs::msg::OccupancyGrid>(
       "map", rclcpp::QoS(1).transient_local());
@@ -70,7 +70,7 @@ void GlobalPlannerNode::goalCallback(
   double gx = msg->pose.position.x;
   double gy = msg->pose.position.y;
   RCLCPP_INFO(get_logger(), "Got goal: (%.2f, %.2f), planning...", gx, gy);
-  planAndPublish(start_x_, start_y_, gx, gy);
+  planAndPublish(current_pose_, msg->pose);
 }
 
 void GlobalPlannerNode::cmdVelCallback(
@@ -97,9 +97,11 @@ void GlobalPlannerNode::cmdVelCallback(
   start_y_ = current_pose_.position.y;
 }
 
-void GlobalPlannerNode::planAndPublish(double sx, double sy, double gx,
-                                       double gy) {
-  nav_msgs::msg::Path path = global_planner_->searchPath(sx, sy, gx, gy);
+void GlobalPlannerNode::planAndPublish(const geometry_msgs::msg::Pose& start,
+                                       const geometry_msgs::msg::Pose goal) {
+  global_planner_->setStartPose(start);
+  global_planner_->setGoalPose(goal);
+  nav_msgs::msg::Path path = global_planner_->searchPath();
   path.header.frame_id = "map";
   path.header.stamp = now();
   path_pub_->publish(path);
