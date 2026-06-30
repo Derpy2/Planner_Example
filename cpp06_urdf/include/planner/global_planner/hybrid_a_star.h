@@ -27,21 +27,7 @@ class HybridAStar : public GlobalPlannerBase {
               const common::CollisionDetection& cs)
       : GlobalPlannerBase(map, logger), configuration_space_(cs) {}
 
-  nav_msgs::msg::Path searchPath() override {
-    int gx, gy;
-    double roll, pitch, yaw;
-    tf2::Quaternion q_tf;
-    tf2::fromMsg(start_pose_.orientation, q_tf);
-    tf2::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
-    map_->worldToGrid(start_pose_.position.x, start_pose_.position.y, gx, gy);
-    Node3D start = Node3D(gx, gy, yaw, 0, 0, nullptr);
-    tf2::fromMsg(goal_pose_.orientation, q_tf);
-    tf2::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
-    map_->worldToGrid(goal_pose_.position.x, goal_pose_.position.y, gx, gy);
-    Node3D goal = Node3D(gx, gy, yaw, 0, 0, nullptr);
-
-    return searchPath(start, goal);
-  }
+  nav_msgs::msg::Path searchPath() override;
 
   // start and goal is grid position
   nav_msgs::msg::Path searchPath(Node3D& start, const Node3D& goal);

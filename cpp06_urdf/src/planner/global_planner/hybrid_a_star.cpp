@@ -17,6 +17,24 @@ struct CompareNode3D {
   }
 };
 
+nav_msgs::msg::Path HybridAStar::searchPath() {
+  int gx, gy;
+  double roll, pitch, yaw;
+  tf2::Quaternion q_tf;
+  tf2::fromMsg(start_pose_.orientation, q_tf);
+  tf2::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
+  if (yaw < 0) yaw += 2 * M_PI;
+  map_->worldToGrid(start_pose_.position.x, start_pose_.position.y, gx, gy);
+  Node3D start = Node3D(gx, gy, yaw, 0, 0, nullptr);
+  tf2::fromMsg(goal_pose_.orientation, q_tf);
+  tf2::Matrix3x3(q_tf).getRPY(roll, pitch, yaw);
+  if (yaw < 0) yaw += 2 * M_PI;
+  map_->worldToGrid(goal_pose_.position.x, goal_pose_.position.y, gx, gy);
+  Node3D goal = Node3D(gx, gy, yaw, 0, 0, nullptr);
+
+  return searchPath(start, goal);
+}
+
 nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
   int idx_pred, idx_succ;
   float new_g;
@@ -39,7 +57,10 @@ nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
   start_ptr->open();
   O.push(start_ptr);
 
-  idx_pred = start.setIdx(width, height);
+  idx_pred = start_ptr->setIdx(width, height);
+  if (start_ptr->getT() < 0 || start_ptr->getT() >= 72) {
+    printf("t error\n");
+  }
   node3d_[idx_pred] = start_ptr;
   std::shared_ptr<Node3D> node_pred, node_succ;
 
@@ -65,7 +86,7 @@ nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
           node_pred->getPrim() < 3) {
         node_succ = dubinsShot(node_pred, goal, configuration_space_);
 
-        if (node_succ != nullptr && *node_succ == goal) {
+        if (node_succ != nullptr) {
           find_goal = true;
           break;
         }
