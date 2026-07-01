@@ -9,7 +9,7 @@ static const float vehicle_length = 0.5;
 
 // Hybrid A star config
 /// [m] --- The minimum turning radius of the vehicle
-static const float r = 6;
+static const float r = 36;
 /// A flag to toggle reversing (true = on; false = off)
 static const bool reverse = false;
 /// A flag to toggle the connection of the path via Dubin's shot (true = on;

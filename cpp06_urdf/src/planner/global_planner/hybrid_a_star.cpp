@@ -6,9 +6,14 @@
 
 #include "common/config.h"
 #include "common/util.h"
+#include "visualization/visualization_manager.h"
 
 namespace global_planner {
 using namespace common;
+using namespace visualization;
+using NodePtr = std::shared_ptr<Node3D>;
+using CmpFunc = std::function<bool(const NodePtr&, const NodePtr&)>;
+
 namespace {
 constexpr double epsilon = 1e-7;
 struct CompareNode3D {
@@ -42,16 +47,22 @@ nav_msgs::msg::Path HybridAStar::searchPath() {
 }
 
 nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
+  // auto& vis_ins = VisualizationManager::Instance();
+  // int vis_count = 4000;
+
   int idx_pred, idx_succ;
   int dir = constants::reverse ? 6 : 3;
 
   bool find_goal = false;
   int iterations = 0;
-  std::priority_queue<std::shared_ptr<Node3D>,
-                      std::vector<std::shared_ptr<Node3D>>, CompareNode3D>
-      O;
   int width = map_->width();
   int height = map_->height();
+  std::priority_queue<NodePtr, std::vector<NodePtr>, CmpFunc> O(
+      [this, &width, &height](const NodePtr& lhs, const NodePtr& rhs) -> bool {
+        return this->node3d_[lhs->setIdx(width, height)]->getC() >
+               this->node3d_[rhs->setIdx(width, height)]->getC();
+      });
+
   int depth = constants::headings;
   node3d_.clear();
   node3d_.resize(width * height * depth);
@@ -108,6 +119,21 @@ nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
           node_succ->open();
           node3d_[idx_succ] = node_succ;
           O.push(node_succ);
+
+          // if (vis_count > 0) {
+          //   double wx, wy;
+          //   map_->gridToWorld(node_pred->getX(), node_pred->getY(), wx, wy);
+          //   geometry_msgs::msg::Point line_start, line_end;
+          //   line_start.x = wx;
+          //   line_start.y = wy;
+          //   map_->gridToWorld(node_succ->getX(), node_succ->getY(), wx, wy);
+          //   line_end.x = wx;
+          //   line_end.y = wy;
+          //   vis_ins.AddLine("hybrid_a_star", vis_count, line_start, line_end,
+          //                   Color(1.0, 1.0, 0.0));
+          //   vis_count--;
+          // }
+
         } else if (node3d_[idx_succ]->isOpen() &&
                    new_c < node3d_[idx_succ]->getC()) {
           node_succ->open();

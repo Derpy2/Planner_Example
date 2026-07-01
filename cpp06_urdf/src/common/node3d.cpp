@@ -30,7 +30,7 @@ std::shared_ptr<Node3D> Node3D::createSuccessor(const int i) {
   float xSucc;
   float ySucc;
   float tSucc;
-  float R = 12.0;
+  float R = constants::r;
 
   // calculate successor positions forward
   if (i < 3) {

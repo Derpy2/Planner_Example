@@ -9,6 +9,8 @@
 #include <queue>
 #include <vector>
 
+#include "visualization/visualization_manager.h"
+
 GlobalPlannerNode::GlobalPlannerNode() : Node("global_planner_node") {
   map_ = std::make_shared<map::StaticMap>();
 
@@ -20,6 +22,8 @@ GlobalPlannerNode::GlobalPlannerNode() : Node("global_planner_node") {
       "map", rclcpp::QoS(1).transient_local());
   path_pub_ = create_publisher<nav_msgs::msg::Path>("global_path", 10);
   odom_pub_ = create_publisher<nav_msgs::msg::Odometry>("odom", 10);
+  vis_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>(
+      "visualization_marker_array", 10);
   start_sub_ =
       create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
           "initialpose", 10,
@@ -44,6 +48,14 @@ GlobalPlannerNode::GlobalPlannerNode() : Node("global_planner_node") {
   pose_timer_ =
       create_wall_timer(std::chrono::milliseconds(50),
                         std::bind(&GlobalPlannerNode::publishRobotPose, this));
+  vis_timer_ = create_wall_timer(
+      std::chrono::milliseconds(100),
+      [this]() {
+        auto markers = visualization::VisualizationManager::Instance().GetAllMarkers();
+        if (!markers.markers.empty()) {
+          vis_pub_->publish(markers);
+        }
+      });
   last_update_time_ = now();
   RCLCPP_INFO(get_logger(),
               "Global planner started. Use '2D Pose Estimate' for start and "

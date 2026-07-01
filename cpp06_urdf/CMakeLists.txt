@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -27,6 +28,7 @@ add_executable(global_planner_node
   src/common/node3d.cpp
   src/common/collision_detection.cpp
   src/global_planner_node.cpp
+  src/visualization/visualization_manager.cpp
   include/global_planner_node.h)
 ament_target_dependencies(global_planner_node
   rclcpp
@@ -34,6 +36,7 @@ ament_target_dependencies(global_planner_node
   geometry_msgs
   tf2_ros
   tf2_geometry_msgs
+  visualization_msgs
 )
 target_link_libraries(global_planner_node ${OMPL_LIBRARIES})
 
@@ -76,6 +79,7 @@ if(BUILD_TESTING)
     src/common/node3d.cpp
     src/common/collision_detection.cpp
     src/planner/global_planner/a_star.cpp
+    src/visualization/visualization_manager.cpp
   )
   target_include_directories(test_hybrid_a_star PUBLIC include)
   target_include_directories(test_hybrid_a_star PUBLIC ${OMPL_INCLUDE_DIRS})
@@ -85,6 +89,7 @@ if(BUILD_TESTING)
     geometry_msgs
     tf2_ros
     tf2_geometry_msgs
+    visualization_msgs
   )
   target_link_libraries(test_hybrid_a_star ${OMPL_LIBRARIES})
 endif()

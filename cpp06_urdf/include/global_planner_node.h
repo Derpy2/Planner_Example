@@ -9,6 +9,7 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include "../include/map/static_map.h"
 #include "../include/planner/global_planner/global_planner_factory.h"
@@ -35,12 +36,14 @@ class GlobalPlannerNode : public rclcpp::Node {
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr vis_pub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
       start_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_sub_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
   rclcpp::TimerBase::SharedPtr map_timer_;
   rclcpp::TimerBase::SharedPtr pose_timer_;
+  rclcpp::TimerBase::SharedPtr vis_timer_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
   geometry_msgs::msg::Pose current_pose_;
   rclcpp::Time last_update_time_;
