@@ -8,6 +8,11 @@ class MPC : public LocalPlannerBase {
  public:
   MPC() {}
 
+  geometry_msgs::msg::Twist getControlCmd() override {
+    geometry_msgs::msg::Twist cmd;
+    return cmd;
+  }
+
  private:
 };
 

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <nav_msgs/msg/odometry.hpp>
 
 #include "config.h"
 
@@ -65,6 +66,12 @@ static inline float toRad(float t) {
 */
 static inline float clamp(float n, float lower, float upper) {
   return std::max(lower, std::min(n, upper));
+}
+
+static inline double yawFromQuaternion(
+    const geometry_msgs::msg::Quaternion& q) {
+  return std::atan2(2.0 * (q.w * q.z + q.x * q.y),
+                    1.0 - 2.0 * (q.y * q.y + q.z * q.z));
 }
 
 }  // namespace common

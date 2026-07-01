@@ -22,9 +22,6 @@ class LocalPlannerNode : public rclcpp::Node {
   size_t findNearestIndex(const nav_msgs::msg::Path& path, double x,
                           double y) const;
 
-  // 四元数转 yaw
-  static double yawFromQuaternion(const geometry_msgs::msg::Quaternion& q);
-
   // 全局路径缓存
   nav_msgs::msg::Path global_path_;
   bool has_global_path_{false};
@@ -33,6 +30,7 @@ class LocalPlannerNode : public rclcpp::Node {
   double current_x_{0.0};
   double current_y_{0.0};
   double current_yaw_{0.0};
+  geometry_msgs::msg::PoseWithCovariance current_pose_;
   bool has_pose_{false};
 
   // 参数

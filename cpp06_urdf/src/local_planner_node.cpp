@@ -8,6 +8,8 @@
 #include <limits>
 #include <utility>
 
+#include "common/util.h"
+
 LocalPlannerNode::LocalPlannerNode() : Node("local_planner_node") {
   local_path_length_ =
       this->declare_parameter<double>("local_path_length", 2.0);
@@ -57,7 +59,8 @@ void LocalPlannerNode::odomCallback(
     const nav_msgs::msg::Odometry::SharedPtr msg) {
   current_x_ = msg->pose.pose.position.x;
   current_y_ = msg->pose.pose.position.y;
-  current_yaw_ = yawFromQuaternion(msg->pose.pose.orientation);
+  current_yaw_ = common::yawFromQuaternion(msg->pose.pose.orientation);
+  current_pose_ = msg->pose;
   has_pose_ = true;
 }
 
@@ -146,9 +149,9 @@ void LocalPlannerNode::planTimerCallback() {
 
   // 纯追踪 (Pure Pursuit) 找前视点
   size_t target_idx = nearest_idx;
-  for (size_t i = nearest_idx; i < global_path_.poses.size(); ++i) {
-    double dx = global_path_.poses[i].pose.position.x - current_x_;
-    double dy = global_path_.poses[i].pose.position.y - current_y_;
+  for (size_t i = nearest_idx; i < smoothed_local.poses.size(); ++i) {
+    double dx = smoothed_local.poses[i].pose.position.x - current_x_;
+    double dy = smoothed_local.poses[i].pose.position.y - current_y_;
     double dist = std::hypot(dx, dy);
     if (dist >= lookahead_distance_) {
       target_idx = i;
@@ -156,12 +159,12 @@ void LocalPlannerNode::planTimerCallback() {
     }
   }
   if (target_idx == nearest_idx &&
-      nearest_idx + 1 < global_path_.poses.size()) {
-    target_idx = global_path_.poses.size() - 1;
+      nearest_idx + 1 < smoothed_local.poses.size()) {
+    target_idx = smoothed_local.poses.size() - 1;
   }
 
-  double target_x = global_path_.poses[target_idx].pose.position.x;
-  double target_y = global_path_.poses[target_idx].pose.position.y;
+  double target_x = smoothed_local.poses[target_idx].pose.position.x;
+  double target_y = smoothed_local.poses[target_idx].pose.position.y;
   double dx = target_x - current_x_;
   double dy = target_y - current_y_;
   double target_yaw = std::atan2(dy, dx);
@@ -190,11 +193,11 @@ void LocalPlannerNode::planTimerCallback() {
   cmd_vel_pub_->publish(cmd);
 }
 
-double LocalPlannerNode::yawFromQuaternion(
-    const geometry_msgs::msg::Quaternion& q) {
-  return std::atan2(2.0 * (q.w * q.z + q.x * q.y),
-                    1.0 - 2.0 * (q.y * q.y + q.z * q.z));
-}
+// double LocalPlannerNode::yawFromQuaternion(
+//     const geometry_msgs::msg::Quaternion& q) {
+//   return std::atan2(2.0 * (q.w * q.z + q.x * q.y),
+//                     1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+// }
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);

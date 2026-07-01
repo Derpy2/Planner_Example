@@ -5,9 +5,10 @@
 #include "local_planner_base.h"
 #include "lqr.h"
 #include "mpc.h"
+#include "pure_pusuit.h"
 
 namespace local_planner {
-enum LocalPlannerType { MPC = 0, LQR = 1, DWA = 2 };
+enum LocalPlannerType { MPC = 0, LQR = 1, PURE_PURSUIT = 2 };
 
 class LocalPlannerFactory {
  public:
@@ -20,6 +21,9 @@ class LocalPlannerFactory {
         //   case LQR: {
         //     return std::make_unique<LQR>();
         //   }
+      case PURE_PURSUIT: {
+        return std::make_unique<PurePursuit>();
+      }
       default:
         throw std::invalid_argument("Unknown local planner type");
     }
