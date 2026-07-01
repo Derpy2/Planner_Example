@@ -21,7 +21,7 @@ static const bool dubins = false;
 
 /// [#] --- Limits the maximum search depth of the algorithm, possibly
 /// terminating without the solution
-static const int iterations = 100000;
+static const int iterations = 600000;
 /// [m] --- The number of discretizations in heading
 static const int headings = 72;
 /// [°] --- The discretization value of the heading (goal condition)

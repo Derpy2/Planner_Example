@@ -43,7 +43,6 @@ nav_msgs::msg::Path HybridAStar::searchPath() {
 
 nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
   int idx_pred, idx_succ;
-  float new_g;
   int dir = constants::reverse ? 6 : 3;
 
   bool find_goal = false;
@@ -74,65 +73,47 @@ nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
     node_pred = O.top();
     idx_pred = node_pred->setIdx(width, height);
     iterations++;
+    O.pop();
 
-    if (node3d_[idx_pred]->getC() < node_pred->getC() - epsilon) {
-      O.pop();
+    if (node_pred->getC() - epsilon > node3d_[idx_pred]->getC()) {
       continue;
     }
 
-    if (node3d_[idx_pred]->isClosed()) {
-      O.pop();
-      continue;
-    } else if (node3d_[idx_pred]->isOpen()) {
-      node3d_[idx_pred]->close();
-      O.pop();
+    node3d_[idx_pred]->close();
 
-      if (*node_pred == goal || iterations > constants::iterations) {
-        find_goal = *node_pred == goal;
-        node_succ = node_pred;
+    if (*node_pred == goal || iterations > constants::iterations) {
+      find_goal = *node_pred == goal;
+      node_succ = node_pred;
+      break;
+    }
+    if (constants::dubinsShot && node_pred->isInRange(goal) &&
+        node_pred->getPrim() < 3) {
+      node_succ = dubinsShot(node_pred, goal, configuration_space_);
+      if (node_succ != nullptr) {
+        find_goal = true;
         break;
       }
+    }
 
-      if (constants::dubinsShot && node_pred->isInRange(goal) &&
-          node_pred->getPrim() < 3) {
-        node_succ = dubinsShot(node_pred, goal, configuration_space_);
-
-        if (node_succ != nullptr) {
-          find_goal = true;
-          break;
-        }
-      }
-
-      for (int i = 0; i < dir; ++i) {
-        node_succ = node_pred->createSuccessor(i);
-        idx_succ = node_succ->setIdx(width, height);
-
-        if (node_succ->isOnGrid(width, height) &&
-            configuration_space_.isTraversable(node_succ.get())) {
-          node_succ->updateG();
-          new_g = node_succ->getG();
-          if (node3d_[idx_succ] == nullptr ||
-              (!node3d_[idx_succ]->isOpen() &&
-               !node3d_[idx_succ]->isClosed())) {
-            updateH(*node_succ, goal);
-            node_succ->open();
-            node3d_[idx_succ] = node_succ;
-            O.push(node_succ);
-          } else if (node3d_[idx_succ]->isClosed() &&
-                     new_g < node3d_[idx_succ]->getG()) {
-            updateH(*node_succ, goal);
-            node_succ->open();
-            node3d_[idx_succ] = node_succ;
-            O.push(node_succ);
-          } else if (node3d_[idx_succ]->isOpen() &&
-                     new_g < node3d_[idx_succ]->getG()) {
-            updateH(*node_succ, goal);
-            node_succ->open();
-            node3d_[idx_succ] = node_succ;
-            O.push(node_succ);
-          } else {
-            continue;
-          }
+    for (int i = 0; i < dir; ++i) {
+      node_succ = node_pred->createSuccessor(i);
+      idx_succ = node_succ->setIdx(width, height);
+      if (node_succ->isOnGrid(width, height) &&
+          configuration_space_.isTraversable(node_succ.get())) {
+        node_succ->updateG();
+        updateH(*node_succ, goal);
+        double new_c = node_succ->getC();
+        if (node3d_[idx_succ] == nullptr ||
+            (!node3d_[idx_succ]->isOpen() && !node3d_[idx_succ]->isClosed())) {
+          node_succ->open();
+          node3d_[idx_succ] = node_succ;
+          O.push(node_succ);
+        } else if (node3d_[idx_succ]->isOpen() &&
+                   new_c < node3d_[idx_succ]->getC()) {
+          node_succ->open();
+          node3d_[idx_succ] = node_succ;
+        } else {
+          continue;
         }
       }
     }

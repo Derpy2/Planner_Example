@@ -6,11 +6,14 @@
 
 namespace common {
 const int Node3D::dir = 3;
-// R = 6, 6.75 DEG
-const float Node3D::dy[] = {0, -0.0415893, 0.0415893};
-const float Node3D::dx[] = {0.7068582, 0.705224, 0.705224};
-const float Node3D::dt[] = {0, 0.1178097, -0.1178097};
-
+// rad = 5 DEG
+const float Node3D::dx[] = {0.087266463, 0.087155743, 0.087155743};
+const float Node3D::dy[] = {0, 0.003805302, -0.003805302};
+const float Node3D::dt[] = {0, 0.087266463, -0.087266463};
+//   L            R             S
+// x 0.087155743  0.087155743   0.087266463
+// y 0.003805302  -0.003805302  0
+// t 0.087266463  -0.087266463  0
 bool Node3D::isOnGrid(const int width, const int height) const {
   return x >= 0 && x < width && y >= 0 && y < height &&
          (int)(t / constants::deltaHeadingRad) >= 0 &&
@@ -27,17 +30,17 @@ std::shared_ptr<Node3D> Node3D::createSuccessor(const int i) {
   float xSucc;
   float ySucc;
   float tSucc;
+  float R = 12.0;
 
   // calculate successor positions forward
   if (i < 3) {
-    xSucc = x + dx[i] * cos(t) - dy[i] * sin(t);
-    ySucc = y + dx[i] * sin(t) + dy[i] * cos(t);
+    xSucc = x + R * (dx[i] * cos(t) - dy[i] * sin(t));
+    ySucc = y + R * (dx[i] * sin(t) + dy[i] * cos(t));
     tSucc = normalizeHeadingRad(t + dt[i]);
-  }
-  // backwards
-  else {
-    xSucc = x - dx[i - 3] * cos(t) - dy[i - 3] * sin(t);
-    ySucc = y - dx[i - 3] * sin(t) + dy[i - 3] * cos(t);
+  } else {
+    // backwards
+    xSucc = x - R * (dx[i - 3] * cos(t) + dy[i - 3] * sin(t));
+    ySucc = y - R * (dx[i - 3] * sin(t) - dy[i - 3] * cos(t));
     tSucc = normalizeHeadingRad(t - dt[i - 3]);
   }
   std::shared_ptr<Node3D> node = std::make_shared<Node3D>(
