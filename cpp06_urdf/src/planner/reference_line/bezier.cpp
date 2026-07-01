@@ -10,7 +10,6 @@ using namespace Eigen;
 nav_msgs::msg::Path BezierReferenceLine::smoothPath(
     const nav_msgs::msg::Path& path) {
   nav_msgs::msg::Path smoothed_path;
-  const size_t pose_size = path.poses.size();
   std::vector<geometry_msgs::msg::PoseStamped> control_points = path.poses;
   if (k_ == 3) {
     smoothed_path.poses = GetBezierCurve(path.poses);

@@ -40,10 +40,9 @@ target_link_libraries(global_planner_node ${OMPL_LIBRARIES})
 add_executable(local_planner_node
   src/local_planner_node.cpp
   include/local_planner_node.h
-  include/planner/reference_line/reference_line_factory.h
-  include/planner/reference_line/reference_line_base.h
   src/planner/reference_line/slide_window.cpp
   src/planner/reference_line/b_spline.cpp
+  src/planner/reference_line/bezier.cpp
 )
 ament_target_dependencies(local_planner_node
   rclcpp

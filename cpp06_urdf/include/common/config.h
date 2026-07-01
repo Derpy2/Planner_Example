@@ -11,7 +11,7 @@ static const float vehicle_length = 0.5;
 /// [m] --- The minimum turning radius of the vehicle
 static const float r = 6;
 /// A flag to toggle reversing (true = on; false = off)
-static const bool reverse = true;
+static const bool reverse = false;
 /// A flag to toggle the connection of the path via Dubin's shot (true = on;
 /// false = off)
 static const bool dubinsShot = true;
@@ -21,7 +21,7 @@ static const bool dubins = false;
 
 /// [#] --- Limits the maximum search depth of the algorithm, possibly
 /// terminating without the solution
-static const int iterations = 30000;
+static const int iterations = 100000;
 /// [m] --- The number of discretizations in heading
 static const int headings = 72;
 /// [°] --- The discretization value of the heading (goal condition)

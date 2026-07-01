@@ -4,6 +4,7 @@
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <mutex>
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
@@ -43,6 +44,8 @@ class GlobalPlannerNode : public rclcpp::Node {
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
   geometry_msgs::msg::Pose current_pose_;
   rclcpp::Time last_update_time_;
+
+  std::once_flag flag;
 
   bool has_start_{false};
   double start_x_{0.0}, start_y_{0.0};

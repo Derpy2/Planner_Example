@@ -12,8 +12,9 @@
 GlobalPlannerNode::GlobalPlannerNode() : Node("global_planner_node") {
   map_ = std::make_shared<map::StaticMap>();
 
-  global_planner_ = global_planner::GlobalPlannerFactory::CreateGlobalPlanner(
-      global_planner::HYBRID_A_STAR, map_, get_logger());
+  // global_planner_ =
+  // global_planner::GlobalPlannerFactory::CreateGlobalPlanner(
+  //     global_planner::HYBRID_A_STAR, map_, get_logger());
 
   map_pub_ = create_publisher<nav_msgs::msg::OccupancyGrid>(
       "map", rclcpp::QoS(1).transient_local());
@@ -99,6 +100,12 @@ void GlobalPlannerNode::cmdVelCallback(
 
 void GlobalPlannerNode::planAndPublish(const geometry_msgs::msg::Pose& start,
                                        const geometry_msgs::msg::Pose goal) {
+  std::call_once(flag, [&]() {
+    this->global_planner_ =
+        global_planner::GlobalPlannerFactory::CreateGlobalPlanner(
+            global_planner::HYBRID_A_STAR, map_, get_logger());
+  });
+
   global_planner_->setStartPose(start);
   global_planner_->setGoalPose(goal);
   nav_msgs::msg::Path path = global_planner_->searchPath();

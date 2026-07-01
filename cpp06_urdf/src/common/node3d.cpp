@@ -18,12 +18,8 @@ bool Node3D::isOnGrid(const int width, const int height) const {
 }
 
 bool Node3D::isInRange(const Node3D& goal) const {
-  static std::random_device rd;
-  static std::mt19937 gen(rd());
-  std::uniform_int_distribution<int> distribution(1, 10);
-  int random = distribution(gen);
-  float dx = std::abs(x - goal.x) / random;
-  float dy = std::abs(y - goal.y) / random;
+  float dx = std::abs(x - goal.x);
+  float dy = std::abs(y - goal.y);
   return (dx * dx) + (dy * dy) < constants::dubinsShotDistance;
 }
 

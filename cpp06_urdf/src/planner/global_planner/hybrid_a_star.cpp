@@ -9,13 +9,15 @@
 
 namespace global_planner {
 using namespace common;
-
+namespace {
+constexpr double epsilon = 1e-7;
 struct CompareNode3D {
   bool operator()(const std::shared_ptr<Node3D> lhs,
                   const std::shared_ptr<Node3D> rhs) const {
     return lhs->getC() > rhs->getC();
   }
 };
+}  // namespace
 
 nav_msgs::msg::Path HybridAStar::searchPath() {
   int gx, gy;
@@ -31,7 +33,11 @@ nav_msgs::msg::Path HybridAStar::searchPath() {
   if (yaw < 0) yaw += 2 * M_PI;
   map_->worldToGrid(goal_pose_.position.x, goal_pose_.position.y, gx, gy);
   Node3D goal = Node3D(gx, gy, yaw, 0, 0, nullptr);
-
+  RCLCPP_INFO(logger_, "Hybrid a star: start pose: %f %f end pose: %f %f\n",
+              start_pose_.position.x, start_pose_.position.y,
+              goal_pose_.position.x, goal_pose_.position.y);
+  RCLCPP_INFO(logger_, "Hybrid a star: start %f %f end %f %f \n", start.getX(),
+              start.getY(), goal.getX(), goal.getY());
   return searchPath(start, goal);
 }
 
@@ -59,7 +65,7 @@ nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
 
   idx_pred = start_ptr->setIdx(width, height);
   if (start_ptr->getT() < 0 || start_ptr->getT() >= 72) {
-    printf("t error\n");
+    RCLCPP_INFO(logger_, "start t: %f\n", start_ptr->getT());
   }
   node3d_[idx_pred] = start_ptr;
   std::shared_ptr<Node3D> node_pred, node_succ;
@@ -68,6 +74,11 @@ nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
     node_pred = O.top();
     idx_pred = node_pred->setIdx(width, height);
     iterations++;
+
+    if (node3d_[idx_pred]->getC() < node_pred->getC() - epsilon) {
+      O.pop();
+      continue;
+    }
 
     if (node3d_[idx_pred]->isClosed()) {
       O.pop();
@@ -118,6 +129,7 @@ nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
             updateH(*node_succ, goal);
             node_succ->open();
             node3d_[idx_succ] = node_succ;
+            O.push(node_succ);
           } else {
             continue;
           }
