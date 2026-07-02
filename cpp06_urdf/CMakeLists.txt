@@ -46,6 +46,7 @@ add_executable(local_planner_node
   src/planner/reference_line/slide_window.cpp
   src/planner/reference_line/b_spline.cpp
   src/planner/reference_line/bezier.cpp
+  src/planner/local_planner/pure_pursuit.cpp
 )
 ament_target_dependencies(local_planner_node
   rclcpp

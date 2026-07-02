@@ -4,9 +4,9 @@
 
 namespace local_planner {
 
-class MPC : public LocalPlannerBase {
+class LocalPlannerMPC : public LocalPlannerBase {
  public:
-  MPC() {}
+  LocalPlannerMPC() {}
 
   geometry_msgs::msg::Twist getControlCmd() override {
     geometry_msgs::msg::Twist cmd;

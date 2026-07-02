@@ -3,6 +3,8 @@
 #include <Eigen/Geometry>
 #include <iostream>
 
+#include "common/util.h"
+
 namespace reference_line {
 
 using namespace Eigen;
@@ -10,12 +12,27 @@ using namespace Eigen;
 nav_msgs::msg::Path BezierReferenceLine::smoothPath(
     const nav_msgs::msg::Path& path) {
   nav_msgs::msg::Path smoothed_path;
-  std::vector<geometry_msgs::msg::PoseStamped> control_points = path.poses;
   if (k_ == 3) {
     smoothed_path.poses = GetBezierCurve(path.poses);
   } else {
     std::cout << "Unsupported Bezier curve order: " << k_ << std::endl;
   }
+
+  for (size_t i = 0; i < smoothed_path.poses.size(); ++i) {
+    double yaw = 0;
+    if (i + 1 < smoothed_path.poses.size()) {
+      yaw = common::computeYaw(smoothed_path.poses[i],
+                               smoothed_path.poses[i + 1]);
+      smoothed_path.poses[i].pose.orientation.z = std::sin(yaw / 2.0);
+      smoothed_path.poses[i].pose.orientation.w = std::cos(yaw / 2.0);
+    } else {
+      yaw = common::computeYaw(smoothed_path.poses[i - 1],
+                               smoothed_path.poses[i]);
+      smoothed_path.poses[i].pose.orientation.z = std::sin(yaw / 2.0);
+      smoothed_path.poses[i].pose.orientation.w = std::cos(yaw / 2.0);
+    }
+  }
+
   return smoothed_path;
 }
 

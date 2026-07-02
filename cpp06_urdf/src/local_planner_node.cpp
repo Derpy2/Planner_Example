@@ -42,6 +42,9 @@ LocalPlannerNode::LocalPlannerNode() : Node("local_planner_node") {
       reference_line::ReferenceLineFactory::GetReferenceLineCreator(
           reference_line::ReferenceLineType::BSpline);
 
+  local_planner_ = local_planner::LocalPlannerFactory::CreateLocalPlanner(
+      local_planner::LocalPlannerType::PURE_PURSUIT);
+
   RCLCPP_INFO(this->get_logger(),
               "Local planner started. lookahead=%.2f, max_v=%.2f, max_w=%.2f",
               lookahead_distance_, max_linear_speed_, max_angular_speed_);
@@ -123,81 +126,13 @@ void LocalPlannerNode::planTimerCallback() {
 
   nav_msgs::msg::Path smoothed_local = reference_line_->smoothPath(local_path);
   smoothed_local.header = local_path.header;
-
-  // 计算每个点的朝向并发布局部路径
-  for (size_t i = 0; i < smoothed_local.poses.size(); ++i) {
-    double yaw = 0.0;
-    if (i < smoothed_local.poses.size() - 1) {
-      double dx = smoothed_local.poses[i + 1].pose.position.x -
-                  smoothed_local.poses[i].pose.position.x;
-      double dy = smoothed_local.poses[i + 1].pose.position.y -
-                  smoothed_local.poses[i].pose.position.y;
-      yaw = std::atan2(dy, dx);
-    } else if (i > 0) {
-      double dx = smoothed_local.poses[i].pose.position.x -
-                  smoothed_local.poses[i - 1].pose.position.x;
-      double dy = smoothed_local.poses[i].pose.position.y -
-                  smoothed_local.poses[i - 1].pose.position.y;
-      yaw = std::atan2(dy, dx);
-    }
-    smoothed_local.poses[i].pose.orientation.x = 0.0;
-    smoothed_local.poses[i].pose.orientation.y = 0.0;
-    smoothed_local.poses[i].pose.orientation.z = std::sin(yaw / 2.0);
-    smoothed_local.poses[i].pose.orientation.w = std::cos(yaw / 2.0);
-  }
   local_path_pub_->publish(smoothed_local);
 
-  // 纯追踪 (Pure Pursuit) 找前视点
-  size_t target_idx = nearest_idx;
-  for (size_t i = nearest_idx; i < smoothed_local.poses.size(); ++i) {
-    double dx = smoothed_local.poses[i].pose.position.x - current_x_;
-    double dy = smoothed_local.poses[i].pose.position.y - current_y_;
-    double dist = std::hypot(dx, dy);
-    if (dist >= lookahead_distance_) {
-      target_idx = i;
-      break;
-    }
-  }
-  if (target_idx == nearest_idx &&
-      nearest_idx + 1 < smoothed_local.poses.size()) {
-    target_idx = smoothed_local.poses.size() - 1;
-  }
-
-  double target_x = smoothed_local.poses[target_idx].pose.position.x;
-  double target_y = smoothed_local.poses[target_idx].pose.position.y;
-  double dx = target_x - current_x_;
-  double dy = target_y - current_y_;
-  double target_yaw = std::atan2(dy, dx);
-  double alpha = target_yaw - current_yaw_;
-  // 归一化到 [-pi, pi]
-  while (alpha > M_PI) alpha -= 2.0 * M_PI;
-  while (alpha < -M_PI) alpha += 2.0 * M_PI;
-
-  double L = std::hypot(dx, dy);
-  if (L < 1e-3) L = lookahead_distance_;
-
-  // 曲率控制
-  double v = max_linear_speed_;
-  // 大角度时减速
-  v *= std::max(0.0, std::cos(alpha));
-  if (v < 0.05) v = 0.05;
-
-  double curvature = 2.0 * std::sin(alpha) / L;
-  double omega = v * curvature;
-  if (omega > max_angular_speed_) omega = max_angular_speed_;
-  if (omega < -max_angular_speed_) omega = -max_angular_speed_;
-
-  geometry_msgs::msg::Twist cmd;
-  cmd.linear.x = v;
-  cmd.angular.z = omega;
+  local_planner_->setCurrentPose(current_pose_);
+  local_planner_->setSmoothedPath(smoothed_local);
+  geometry_msgs::msg::Twist cmd = local_planner_->getControlCmd();
   cmd_vel_pub_->publish(cmd);
 }
-
-// double LocalPlannerNode::yawFromQuaternion(
-//     const geometry_msgs::msg::Quaternion& q) {
-//   return std::atan2(2.0 * (q.w * q.z + q.x * q.y),
-//                     1.0 - 2.0 * (q.y * q.y + q.z * q.z));
-// }
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);

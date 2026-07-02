@@ -1,5 +1,4 @@
-#ifndef LOCAL_PLANNER_NODE_H
-#define LOCAL_PLANNER_NODE_H
+#pragma once
 
 #include <geometry_msgs/msg/twist.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -7,6 +6,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <vector>
 
+#include "../include/planner/local_planner/local_planner_factory.h"
 #include "../include/planner/reference_line/reference_line_factory.h"
 
 class LocalPlannerNode : public rclcpp::Node {
@@ -47,6 +47,5 @@ class LocalPlannerNode : public rclcpp::Node {
   rclcpp::TimerBase::SharedPtr timer_;
 
   std::unique_ptr<reference_line::ReferenceLineBase> reference_line_;
+  std::unique_ptr<local_planner::LocalPlannerBase> local_planner_;
 };
-
-#endif  // LOCAL_PLANNER_NODE_H
