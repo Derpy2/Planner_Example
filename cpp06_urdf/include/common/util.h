@@ -82,4 +82,12 @@ static inline double computeYaw(const geometry_msgs::msg::PoseStamped& a,
   return std::atan2(dy, dx);
 }
 
+static inline double normalizeAngleDiff(double theta) {
+  theta = theta - std::floor(theta / (2.0 * M_PI)) * (2.0 * M_PI);
+  if (theta > M_PI) {
+    theta -= 2.0 * M_PI;
+  }
+  return theta;
+}
+
 }  // namespace common

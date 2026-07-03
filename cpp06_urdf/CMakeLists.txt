@@ -15,6 +15,8 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(ompl REQUIRED)
+find_package(osqp REQUIRED)
+find_package(OsqpEigen REQUIRED)
 
 include_directories(include)
 include_directories(${OMPL_INCLUDE_DIRS})
@@ -47,6 +49,7 @@ add_executable(local_planner_node
   src/planner/reference_line/b_spline.cpp
   src/planner/reference_line/bezier.cpp
   src/planner/local_planner/pure_pursuit.cpp
+  src/planner/local_planner/mpc.cpp
 )
 ament_target_dependencies(local_planner_node
   rclcpp
@@ -54,6 +57,8 @@ ament_target_dependencies(local_planner_node
   geometry_msgs
   Eigen3
 )
+
+target_link_libraries(local_planner_node osqp::osqp OsqpEigen::OsqpEigen)
 
 install(TARGETS
   global_planner_node

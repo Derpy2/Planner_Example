@@ -1,19 +1,73 @@
 #pragma once
 
+#include <Eigen/Dense>
+#include <OsqpEigen/OsqpEigen.h>
+#include <vector>
+
+#include "common/util.h"
 #include "local_planner_base.h"
 
+namespace {
+constexpr double epsilon = 1e-6;
+}
+
 namespace local_planner {
+
+using namespace Eigen;
+
+struct PathPoint {
+  double x, y, theta;
+};
+
+struct Control {
+  double v, omega;
+};
 
 class LocalPlannerMPC : public LocalPlannerBase {
  public:
   LocalPlannerMPC() {}
 
-  geometry_msgs::msg::Twist getControlCmd() override {
-    geometry_msgs::msg::Twist cmd;
-    return cmd;
-  }
+  void Init(const int nx, const int nu, const int N, double dt, double v_ref);
+
+  // 1. 提取参考线轨迹
+  std::vector<PathPoint> extractPathPoints(const nav_msgs::msg::Path& path);
+
+  // 2. 计算累计弧长
+  std::vector<double> computeArcLength(const std::vector<PathPoint>& pts);
+  // 3. 按时间步长重采样
+  std::vector<PathPoint> resamplePath(const std::vector<PathPoint>& pts,
+                                      const std::vector<double>& s);
+  // 4. 计算参考线控制量
+  std::vector<Control> computeReferenceControls(
+      const std::vector<PathPoint>& ref_traj);
+
+  geometry_msgs::msg::Twist getControlCmd() override;
+
+  Control solveQP(const std::vector<PathPoint>& x_ref,
+                  const std::vector<Control>& u_ref,
+                  const Eigen::VectorXd& x0);
 
  private:
+  int nx_ = 3;          // 状态维度
+  int nu_ = 2;          // 控制维度
+  int N_ = 20;          // 预测时域
+  int n_var_ = 0;       // 优化变量总数
+  int n_constr_ = 0;    // 等式约束 + 边界约束
+  double v_ref_ = 0.3;  // 参考速度
+  double dt_ = 0.05;    // 采样时间步长
+
+  // 权重矩阵
+  Eigen::MatrixXd Q_;
+  Eigen::MatrixXd R_;
+  Eigen::MatrixXd P_;
+
+  // 约束
+  Eigen::VectorXd x_min_, x_max_;
+  Eigen::VectorXd u_min_, u_max_;
+
+  // OSQP求解器
+  OsqpEigen::Solver solver_;
+  bool solver_initialized_;
 };
 
 }  // namespace local_planner
