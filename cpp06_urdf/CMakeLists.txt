@@ -27,6 +27,7 @@ add_executable(global_planner_node
   src/planner/global_planner/a_star.cpp
   src/planner/global_planner/hybrid_a_star.cpp
   src/planner/global_planner/dubins.cpp
+  src/planner/global_planner/rrt_star.cpp
   src/common/node3d.cpp
   src/common/collision_detection.cpp
   src/global_planner_node.cpp

@@ -48,14 +48,13 @@ GlobalPlannerNode::GlobalPlannerNode() : Node("global_planner_node") {
   pose_timer_ =
       create_wall_timer(std::chrono::milliseconds(50),
                         std::bind(&GlobalPlannerNode::publishRobotPose, this));
-  vis_timer_ = create_wall_timer(
-      std::chrono::milliseconds(100),
-      [this]() {
-        auto markers = visualization::VisualizationManager::Instance().GetAllMarkers();
-        if (!markers.markers.empty()) {
-          vis_pub_->publish(markers);
-        }
-      });
+  vis_timer_ = create_wall_timer(std::chrono::milliseconds(100), [this]() {
+    auto markers =
+        visualization::VisualizationManager::Instance().GetAllMarkers();
+    if (!markers.markers.empty()) {
+      vis_pub_->publish(markers);
+    }
+  });
   last_update_time_ = now();
   RCLCPP_INFO(get_logger(),
               "Global planner started. Use '2D Pose Estimate' for start and "
@@ -115,7 +114,7 @@ void GlobalPlannerNode::planAndPublish(const geometry_msgs::msg::Pose& start,
   std::call_once(flag, [&]() {
     this->global_planner_ =
         global_planner::GlobalPlannerFactory::CreateGlobalPlanner(
-            global_planner::HYBRID_A_STAR, map_, get_logger());
+            global_planner::RRT_STAR, map_, get_logger());
   });
 
   global_planner_->setStartPose(start);

@@ -33,6 +33,12 @@ std::vector<Node3D> CollisionDetection::getVehiclePolygon(float x, float y,
 }
 
 bool CollisionDetection::configurationTest(float x, float y, float t) const {
+  // x, y 为grid map坐标
+  const auto& map_msg = map_->getMapMsg();
+  if (map_msg.data[map_->idx(x, y)] >= 50) {
+    return false;
+  }
+
   std::vector<Node3D> vehicle_polygon = getVehiclePolygon(
       x, y, t, constants::vehicle_width, constants::vehicle_length);
   float max_x = vehicle_polygon[0].getX(), min_x = vehicle_polygon[0].getX();
@@ -47,7 +53,7 @@ bool CollisionDetection::configurationTest(float x, float y, float t) const {
     max_y = std::max(max_y, node.getY());
     min_y = std::min(min_y, node.getY());
   }
-  const auto& map_msg = map_->getMapMsg();
+
   for (int i = min_x; i <= max_x; ++i) {
     for (int j = min_y; j <= max_y; ++j) {
       if (map_msg.data[map_->idx(i, j)] >= 50) {

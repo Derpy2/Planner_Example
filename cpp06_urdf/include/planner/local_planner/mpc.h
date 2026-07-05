@@ -32,6 +32,9 @@ class LocalPlannerMPC : public LocalPlannerBase {
 
   void Init(const int nx, const int nu, const int N, double dt, double v_ref);
 
+  geometry_msgs::msg::Twist getControlCmd() override;
+
+ private:
   // 1. 提取参考线轨迹
   std::vector<PathPoint> extractPathPoints(const nav_msgs::msg::Path& path);
 
@@ -43,8 +46,6 @@ class LocalPlannerMPC : public LocalPlannerBase {
   // 4. 计算参考线控制量
   std::vector<Control> computeReferenceControls(
       const std::vector<PathPoint>& ref_traj);
-
-  geometry_msgs::msg::Twist getControlCmd() override;
 
   Control solveQP(const std::vector<PathPoint>& x_ref,
                   const std::vector<Control>& u_ref, const Eigen::VectorXd& x0);

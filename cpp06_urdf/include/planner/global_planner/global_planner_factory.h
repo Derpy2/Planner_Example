@@ -7,10 +7,11 @@
 
 #include "a_star.h"
 #include "hybrid_a_star.h"
+#include "rrt_star.h"
 
 namespace global_planner {
 
-enum GlobalPlannerType { A_STAR = 1, HYBRID_A_STAR = 2 };
+enum GlobalPlannerType { A_STAR = 1, HYBRID_A_STAR = 2, RRT_STAR = 3 };
 
 class GlobalPlannerFactory {
  public:
@@ -22,8 +23,10 @@ class GlobalPlannerFactory {
         return std::make_unique<AStar>(map, logger);
       }
       case HYBRID_A_STAR: {
-        common::CollisionDetection cd(map);
-        return std::make_unique<HybridAStar>(map, logger, cd);
+        return std::make_unique<HybridAStar>(map, logger);
+      }
+      case RRT_STAR: {
+        return std::make_unique<RRTStar>(map, logger);
       }
       default:
         throw std::invalid_argument("Unknown globla planner type");
