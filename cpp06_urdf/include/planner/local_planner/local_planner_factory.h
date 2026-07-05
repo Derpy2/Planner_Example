@@ -3,26 +3,25 @@
 #include <memory>
 
 #include "local_planner_base.h"
-#include "lqr.h"
 #include "mpc.h"
 #include "pure_pursuit.h"
 
 namespace local_planner {
-enum LocalPlannerType { MPC = 0, LQR = 1, PURE_PURSUIT = 2 };
+enum LocalPlannerType { MPC = 0, DWA = 1, PURE_PURSUIT = 2 };
 
 class LocalPlannerFactory {
  public:
   static std::unique_ptr<LocalPlannerBase> CreateLocalPlanner(
-      const LocalPlannerType& type) {
+      const LocalPlannerType& type, const rclcpp::Logger& logger) {
     switch (type) {
       case MPC: {
-        return std::make_unique<LocalPlannerMPC>();
+        return std::make_unique<LocalPlannerMPC>(logger);
       }
-        //   case LQR: {
-        //     return std::make_unique<LQR>();
+        //   case DWA: {
+        //     return std::make_unique<LocalPlannerDWA>();
         //   }
       case PURE_PURSUIT: {
-        return std::make_unique<PurePursuit>();
+        return std::make_unique<PurePursuit>(logger);
       }
       default:
         throw std::invalid_argument("Unknown local planner type");

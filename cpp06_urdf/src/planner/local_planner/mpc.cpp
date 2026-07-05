@@ -10,6 +10,33 @@ void LocalPlannerMPC::Init(const int nx, const int nu, const int N, double dt,
   v_ref_ = v_ref;
   n_var_ = (N + 1) * nx + N * nu;
   n_constr_ = N * nx + n_var_;
+
+  // 权重矩阵初始化
+  Q_ = Eigen::MatrixXd::Zero(nx_, nx_);
+  Q_(0, 0) = 500.0;  // x误差惩罚
+  Q_(1, 1) = 500.0;  // y误差惩罚
+  Q_(2, 2) = 0.1;    // theta 误差惩罚
+
+  R_ = Eigen::MatrixXd::Zero(nu_, nu_);
+  R_(0, 0) = 10.0;  // v增量惩罚
+  R_(1, 1) = 2.0;   // omega 增量惩罚
+
+  P_ = Q_;
+
+  // 状态/控制boundary
+  x_min_ = Eigen::VectorXd::Constant(nx_, -10.0);
+  x_max_ = Eigen::VectorXd::Constant(nx_, 10.0);
+  x_min_(2) = -M_PI;
+  x_max_(2) = M_PI;
+  u_min_ = Eigen::VectorXd::Constant(nu_, -1e3);
+  u_max_ = Eigen::VectorXd::Constant(nu_, 1e3);
+  u_min_(0) = 0.0;
+  u_max_(0) = 0.6;
+
+  // u_min_(1) = -1.8;
+  // u_max_(1) = 1.8;
+
+  solver_initialized_ = false;
 }
 
 std::vector<PathPoint> LocalPlannerMPC::extractPathPoints(
@@ -113,7 +140,27 @@ geometry_msgs::msg::Twist LocalPlannerMPC::getControlCmd() {
 Control LocalPlannerMPC::solveQP(const std::vector<PathPoint>& x_ref,
                                  const std::vector<Control>& u_ref,
                                  const Eigen::VectorXd& x0) {
+  RCLCPP_INFO(logger_, "x0: %f %f %f", x0(0), x0(1), x0(2));
+  RCLCPP_INFO(logger_, "x_ref: %f %f %f u_ref %f %f", x_ref[0].x, x_ref[0].y,
+              x_ref[0].theta, u_ref[0].v, u_ref[0].omega);
   // 1. 线性化
+  /*
+    x = [X Y theta] 状态向量
+    u = [v omega] 控制向量
+    x_{k+1} = f(x_k, u_k) =
+      [X_k + dt * V_k * cos(theta_k),
+       Y_k + dt * V_k * sin(theta_k),
+       theta_k + omega_k * dt]
+    x_{k + 1} = A * x_k + B * u_k + d_k
+        | 1 0 dt * V_k * -sin(theta_k) |
+    A = | 0 1 dt * V_k * cos(theta_k)  |
+        | 0 0 1                        |
+
+        | dt * cos(theta_k) 0  |
+    B = | dt * sin(theta_k) 0  |
+        | 0                 dt |
+    d_k 为x_{k + 1}到参考线对应位置的误差
+    */
   std::vector<Eigen::MatrixXd> A_vec(N_);
   std::vector<Eigen::MatrixXd> B_vec(N_);
   std::vector<Eigen::MatrixXd> d_vec(N_);
@@ -123,7 +170,7 @@ Control LocalPlannerMPC::solveQP(const std::vector<PathPoint>& x_ref,
     double v_k = u_ref[k].v;
 
     Eigen::MatrixXd A = Eigen::MatrixXd::Identity(nx_, nx_);
-    A(0, 2) = -dt_ * v_k * std::sin(theta_k);
+    A(0, 2) = dt_ * v_k * -std::sin(theta_k);
     A(1, 2) = dt_ * v_k * std::cos(theta_k);
 
     Eigen::MatrixXd B = Eigen::MatrixXd::Zero(nx_, nu_);
@@ -295,7 +342,7 @@ Control LocalPlannerMPC::solveQP(const std::vector<PathPoint>& x_ref,
     solver_.settings()->setRelativeTolerance(1e-3);
 
     if (!solver_.initSolver()) {
-      std::cerr << "OSQP init failed!" << std::endl;
+      RCLCPP_INFO(logger_, "OSQP init failed!");
       return Control{0.0, 0.0};
     }
 
@@ -308,7 +355,7 @@ Control LocalPlannerMPC::solveQP(const std::vector<PathPoint>& x_ref,
   }
 
   if (solver_.solveProblem() != OsqpEigen::ErrorExitFlag::NoError) {
-    std::cerr << "OSQP solve failed!" << std::endl;
+    RCLCPP_INFO(logger_, "OSQP solve failed!");
     return Control{u_ref[0].v, u_ref[0].omega};  // fallback
   }
 

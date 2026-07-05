@@ -9,9 +9,11 @@ namespace local_planner {
 
 class LocalPlannerBase {
  public:
-  LocalPlannerBase() {}
+  LocalPlannerBase(const rclcpp::Logger& logger) : logger_(logger) {}
 
   virtual ~LocalPlannerBase() = default;
+
+  virtual void Init() {}
 
   virtual geometry_msgs::msg::Twist getControlCmd() = 0;
 
@@ -29,6 +31,7 @@ class LocalPlannerBase {
   size_t nearest_idx_;
   nav_msgs::msg::Path smoothed_local_;
   geometry_msgs::msg::PoseWithCovariance current_pose_;
+  const rclcpp::Logger& logger_;
 };
 
 }  // namespace local_planner

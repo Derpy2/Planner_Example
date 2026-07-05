@@ -19,8 +19,8 @@ class LocalPlannerNode : public rclcpp::Node {
   void planTimerCallback();
 
   // 找到最近路径点索引
-  size_t findNearestIndex(const nav_msgs::msg::Path& path, double x,
-                          double y) const;
+  size_t findNearestIndex(const nav_msgs::msg::Path& path, double x, double y,
+                          double theta) const;
 
   // 全局路径缓存
   nav_msgs::msg::Path global_path_;
@@ -47,5 +47,9 @@ class LocalPlannerNode : public rclcpp::Node {
   rclcpp::TimerBase::SharedPtr timer_;
 
   std::unique_ptr<reference_line::ReferenceLineBase> reference_line_;
-  std::unique_ptr<local_planner::LocalPlannerBase> local_planner_;
+  std::unique_ptr<local_planner::LocalPlannerBase> local_planner_ = nullptr;
+
+  std::once_flag flag;
+
+  size_t last_nearest_idx_ = 0;
 };

@@ -40,10 +40,7 @@ LocalPlannerNode::LocalPlannerNode() : Node("local_planner_node") {
 
   reference_line_ =
       reference_line::ReferenceLineFactory::GetReferenceLineCreator(
-          reference_line::ReferenceLineType::BSpline);
-
-  local_planner_ = local_planner::LocalPlannerFactory::CreateLocalPlanner(
-      local_planner::LocalPlannerType::PURE_PURSUIT);
+          reference_line::ReferenceLineType::SlideWindow);
 
   RCLCPP_INFO(this->get_logger(),
               "Local planner started. lookahead=%.2f, max_v=%.2f, max_w=%.2f",
@@ -53,9 +50,14 @@ LocalPlannerNode::LocalPlannerNode() : Node("local_planner_node") {
 void LocalPlannerNode::globalPathCallback(
     const nav_msgs::msg::Path::SharedPtr msg) {
   global_path_ = *msg;
+
   has_global_path_ = !msg->poses.empty();
   RCLCPP_INFO(this->get_logger(), "Received global path with %zu poses.",
               msg->poses.size());
+  last_nearest_idx_ = 0;
+  if (local_planner_ != nullptr) {
+    local_planner_->Init();
+  }
 }
 
 void LocalPlannerNode::odomCallback(
@@ -68,17 +70,25 @@ void LocalPlannerNode::odomCallback(
 }
 
 size_t LocalPlannerNode::findNearestIndex(const nav_msgs::msg::Path& path,
-                                          double x, double y) const {
+                                          double x, double y,
+                                          double theta) const {
   size_t nearest = 0;
   double min_dist = std::numeric_limits<double>::infinity();
-  for (size_t i = 0; i < path.poses.size(); ++i) {
+  for (size_t i = last_nearest_idx_; i < path.poses.size(); ++i) {
     double dx = path.poses[i].pose.position.x - x;
     double dy = path.poses[i].pose.position.y - y;
+    if (dx * std::cos(theta) + dy * std::sin(theta) < 0) {
+      continue;
+    }
     double dist = std::hypot(dx, dy);
     if (dist < min_dist) {
       min_dist = dist;
       nearest = i;
     }
+    // if (dist > lookahead_distance_) {
+    //   nearest = i;
+    //   break;
+    // }
   }
   return nearest;
 }
@@ -88,7 +98,12 @@ void LocalPlannerNode::planTimerCallback() {
     return;
   }
 
-  size_t nearest_idx = findNearestIndex(global_path_, current_x_, current_y_);
+  size_t nearest_idx =
+      findNearestIndex(global_path_, current_x_, current_y_, current_yaw_);
+  if (nearest_idx < last_nearest_idx_) {
+    nearest_idx = last_nearest_idx_;
+  }
+  last_nearest_idx_ = nearest_idx;
 
   // 检查是否到达终点
   auto goal_pose = global_path_.poses.back().pose;
@@ -124,6 +139,13 @@ void LocalPlannerNode::planTimerCallback() {
     return;
   }
 
+  std::call_once(flag, [&]() {
+    this->local_planner_ =
+        local_planner::LocalPlannerFactory::CreateLocalPlanner(
+            local_planner::LocalPlannerType::MPC, this->get_logger());
+    local_planner_->Init();
+  });
+
   nav_msgs::msg::Path smoothed_local = reference_line_->smoothPath(local_path);
   smoothed_local.header = local_path.header;
   local_path_pub_->publish(smoothed_local);
@@ -131,6 +153,8 @@ void LocalPlannerNode::planTimerCallback() {
   local_planner_->setCurrentPose(current_pose_);
   local_planner_->setSmoothedPath(smoothed_local);
   geometry_msgs::msg::Twist cmd = local_planner_->getControlCmd();
+  RCLCPP_INFO(this->get_logger(), "Cmd: v=%.2f, omega=%.2f", cmd.linear.x,
+              cmd.angular.z);
   cmd_vel_pub_->publish(cmd);
 }
 

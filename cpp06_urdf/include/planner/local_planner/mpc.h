@@ -1,7 +1,8 @@
 #pragma once
 
-#include <Eigen/Dense>
 #include <OsqpEigen/OsqpEigen.h>
+
+#include <Eigen/Dense>
 #include <vector>
 
 #include "common/util.h"
@@ -25,7 +26,9 @@ struct Control {
 
 class LocalPlannerMPC : public LocalPlannerBase {
  public:
-  LocalPlannerMPC() {}
+  LocalPlannerMPC(const rclcpp::Logger& logger) : LocalPlannerBase(logger) {}
+
+  void Init() override { Init(3, 2, 20, 0.05, 0.3); }
 
   void Init(const int nx, const int nu, const int N, double dt, double v_ref);
 
@@ -44,8 +47,7 @@ class LocalPlannerMPC : public LocalPlannerBase {
   geometry_msgs::msg::Twist getControlCmd() override;
 
   Control solveQP(const std::vector<PathPoint>& x_ref,
-                  const std::vector<Control>& u_ref,
-                  const Eigen::VectorXd& x0);
+                  const std::vector<Control>& u_ref, const Eigen::VectorXd& x0);
 
  private:
   int nx_ = 3;          // 状态维度
