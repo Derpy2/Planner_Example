@@ -30,19 +30,9 @@ class RRTStar : public GlobalPlannerBase {
 
   nav_msgs::msg::Path searchPath() override;
 
-  void setStartPose(const geometry_msgs::msg::Pose& start_pose) override {
-    start_pose_ = start_pose;
-    int gx, gy;
-    map_->worldToGrid(start_pose.position.x, start_pose.position.y, gx, gy);
-    start_node_ = std::make_shared<Node3D>(gx, gy, 0, 0, 0, nullptr);
-  }
+  void setStartPose(const geometry_msgs::msg::Pose& start_pose) override;
 
-  void setGoalPose(const geometry_msgs::msg::Pose& goal_pose) override {
-    goal_pose_ = goal_pose;
-    int gx, gy;
-    map_->worldToGrid(goal_pose.position.x, goal_pose.position.y, gx, gy);
-    goal_node_ = std::make_shared<Node3D>(gx, gy, 0, 0, 0, nullptr);
-  }
+  void setGoalPose(const geometry_msgs::msg::Pose& goal_pose) override;
 
   void setIteration(int iteration) { iteration_ = iteration; }
   void setExtendLength(double extend_length) { extend_length_ = extend_length; }
@@ -77,6 +67,7 @@ class RRTStar : public GlobalPlannerBase {
 
   double calculateDistance(const std::shared_ptr<Node3D>& a,
                            const std::shared_ptr<Node3D>& b);
+
   bool isLineCollision(const std::shared_ptr<Node3D>& start,
                        const std::shared_ptr<Node3D>& end);
 

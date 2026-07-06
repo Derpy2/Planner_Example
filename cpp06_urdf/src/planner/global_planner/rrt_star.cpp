@@ -12,6 +12,20 @@ RRTStar::RRTStar(std::shared_ptr<map::StaticMap> map,
   goal_bias_ = std::uniform_real_distribution<double>(0.0, 1.0);
 }
 
+void RRTStar::setStartPose(const geometry_msgs::msg::Pose& start_pose) {
+  start_pose_ = start_pose;
+  int gx, gy;
+  map_->worldToGrid(start_pose.position.x, start_pose.position.y, gx, gy);
+  start_node_ = std::make_shared<Node3D>(gx, gy, 0, 0, 0, nullptr);
+}
+
+void RRTStar::setGoalPose(const geometry_msgs::msg::Pose& goal_pose) {
+  goal_pose_ = goal_pose;
+  int gx, gy;
+  map_->worldToGrid(goal_pose.position.x, goal_pose.position.y, gx, gy);
+  goal_node_ = std::make_shared<Node3D>(gx, gy, 0, 0, 0, nullptr);
+}
+
 nav_msgs::msg::Path RRTStar::searchPath() {
   std::vector<std::shared_ptr<TreeNode>> tree;
 
