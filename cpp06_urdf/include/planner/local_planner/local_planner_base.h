@@ -5,15 +5,19 @@
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
 
+#include "map/static_map.h"
+
 namespace local_planner {
 
 class LocalPlannerBase {
  public:
-  LocalPlannerBase(const rclcpp::Logger& logger) : logger_(logger) {}
+  LocalPlannerBase(std::shared_ptr<map::StaticMap> map,
+                   const rclcpp::Logger& logger)
+      : map_(map), logger_(logger) {}
 
   virtual ~LocalPlannerBase() = default;
 
-  virtual void Init() {}
+  virtual void init() {}
 
   virtual geometry_msgs::msg::Twist getControlCmd() = 0;
 
@@ -23,14 +27,20 @@ class LocalPlannerBase {
     smoothed_local_ = smoothed_local;
   }
 
-  void setCurrentPose(const geometry_msgs::msg::PoseWithCovariance pose) {
+  void setCurrentPose(const geometry_msgs::msg::PoseWithCovariance& pose) {
     current_pose_ = pose;
   }
 
+  void setCurrentTwist(const geometry_msgs::msg::TwistWithCovariance& twist) {
+    current_twist_ = twist;
+  }
+
  protected:
+  std::shared_ptr<map::StaticMap> map_ = nullptr;
   size_t nearest_idx_;
   nav_msgs::msg::Path smoothed_local_;
   geometry_msgs::msg::PoseWithCovariance current_pose_;
+  geometry_msgs::msg::TwistWithCovariance current_twist_;
   const rclcpp::Logger& logger_;
 };
 

@@ -26,11 +26,13 @@ struct Control {
 
 class LocalPlannerMPC : public LocalPlannerBase {
  public:
-  LocalPlannerMPC(const rclcpp::Logger& logger) : LocalPlannerBase(logger) {}
+  LocalPlannerMPC(std::shared_ptr<map::StaticMap> map,
+                  const rclcpp::Logger& logger)
+      : LocalPlannerBase(map, logger) {}
 
-  void Init() override { Init(3, 2, 20, 0.05, 0.3); }
+  void init() override { init(3, 2, 20, 0.05, 0.3); }
 
-  void Init(const int nx, const int nu, const int N, double dt, double v_ref);
+  void init(const int nx, const int nu, const int N, double dt, double v_ref);
 
   geometry_msgs::msg::Twist getControlCmd() override;
 

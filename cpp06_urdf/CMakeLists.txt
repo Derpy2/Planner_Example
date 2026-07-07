@@ -44,6 +44,7 @@ ament_target_dependencies(global_planner_node
 target_link_libraries(global_planner_node ${OMPL_LIBRARIES})
 
 add_executable(local_planner_node
+  src/map/static_map.cpp
   src/local_planner_node.cpp
   include/local_planner_node.h
   src/planner/reference_line/slide_window.cpp
@@ -51,6 +52,7 @@ add_executable(local_planner_node
   src/planner/reference_line/bezier.cpp
   src/planner/local_planner/pure_pursuit.cpp
   src/planner/local_planner/mpc.cpp
+  src/planner/local_planner/dwa.cpp
 )
 ament_target_dependencies(local_planner_node
   rclcpp

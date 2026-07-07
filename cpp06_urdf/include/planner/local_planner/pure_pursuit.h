@@ -9,9 +9,10 @@ using namespace common;
 
 class PurePursuit : public LocalPlannerBase {
  public:
-  PurePursuit(const rclcpp::Logger& logger) : LocalPlannerBase(logger) {}
+  PurePursuit(std::shared_ptr<map::StaticMap> map, const rclcpp::Logger& logger)
+      : LocalPlannerBase(map, logger) {}
 
-  void Init() override {}
+  void init() override {}
 
   geometry_msgs::msg::Twist getControlCmd() override;
 

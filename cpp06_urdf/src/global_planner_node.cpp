@@ -114,7 +114,7 @@ void GlobalPlannerNode::planAndPublish(const geometry_msgs::msg::Pose& start,
   std::call_once(flag, [&]() {
     this->global_planner_ =
         global_planner::GlobalPlannerFactory::CreateGlobalPlanner(
-            global_planner::RRT_STAR, map_, get_logger());
+            global_planner::HYBRID_A_STAR, map_, get_logger());
   });
 
   global_planner_->setStartPose(start);

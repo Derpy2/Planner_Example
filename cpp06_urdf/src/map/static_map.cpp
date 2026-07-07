@@ -11,6 +11,7 @@ StaticMap::StaticMap() {
 }
 
 void StaticMap::buildMap() {
+  obstacles_.clear();
   map_msg_.header.frame_id = "map";
   map_msg_.header.stamp = rclcpp::Clock().now();
   map_msg_.info.resolution = resolution_;
@@ -48,6 +49,13 @@ void StaticMap::addObstacle(double xmin, double ymin, double xmax,
       }
     }
   }
+
+  std::vector<Node3D> polygon;
+  polygon.emplace_back(gx0, gy0, 0, 0, 0, nullptr);
+  polygon.emplace_back(gx1, gy0, 0, 0, 0, nullptr);
+  polygon.emplace_back(gx1, gy1, 0, 0, 0, nullptr);
+  polygon.emplace_back(gx0, gy1, 0, 0, 0, nullptr);
+  obstacles_.emplace_back(polygon);
 }
 
 void StaticMap::worldToGrid(double wx, double wy, int& gx, int& gy) const {

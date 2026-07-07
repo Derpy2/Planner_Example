@@ -20,6 +20,7 @@ LocalPlannerNode::LocalPlannerNode() : Node("local_planner_node") {
       this->declare_parameter<double>("max_angular_speed", 1.0);
   goal_tolerance_ = this->declare_parameter<double>("goal_tolerance", 0.15);
 
+  map_ = std::make_shared<map::StaticMap>();
   global_path_sub_ = this->create_subscription<nav_msgs::msg::Path>(
       "global_path", 10,
       std::bind(&LocalPlannerNode::globalPathCallback, this,
@@ -56,7 +57,7 @@ void LocalPlannerNode::globalPathCallback(
               msg->poses.size());
   last_nearest_idx_ = 0;
   if (local_planner_ != nullptr) {
-    local_planner_->Init();
+    local_planner_->init();
   }
 }
 
@@ -66,6 +67,7 @@ void LocalPlannerNode::odomCallback(
   current_y_ = msg->pose.pose.position.y;
   current_yaw_ = common::yawFromQuaternion(msg->pose.pose.orientation);
   current_pose_ = msg->pose;
+  current_twist_ = msg->twist;
   has_pose_ = true;
 }
 
@@ -142,8 +144,8 @@ void LocalPlannerNode::planTimerCallback() {
   std::call_once(flag, [&]() {
     this->local_planner_ =
         local_planner::LocalPlannerFactory::CreateLocalPlanner(
-            local_planner::LocalPlannerType::MPC, this->get_logger());
-    local_planner_->Init();
+            local_planner::LocalPlannerType::DWA, map_, this->get_logger());
+    local_planner_->init();
   });
 
   nav_msgs::msg::Path smoothed_local = reference_line_->smoothPath(local_path);
@@ -151,6 +153,7 @@ void LocalPlannerNode::planTimerCallback() {
   local_path_pub_->publish(smoothed_local);
 
   local_planner_->setCurrentPose(current_pose_);
+  local_planner_->setCurrentTwist(current_twist_);
   local_planner_->setSmoothedPath(smoothed_local);
   geometry_msgs::msg::Twist cmd = local_planner_->getControlCmd();
   RCLCPP_INFO(this->get_logger(), "Cmd: v=%.2f, omega=%.2f", cmd.linear.x,

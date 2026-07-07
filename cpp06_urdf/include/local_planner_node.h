@@ -31,6 +31,7 @@ class LocalPlannerNode : public rclcpp::Node {
   double current_y_{0.0};
   double current_yaw_{0.0};
   geometry_msgs::msg::PoseWithCovariance current_pose_;
+  geometry_msgs::msg::TwistWithCovariance current_twist_;
   bool has_pose_{false};
 
   // 参数
@@ -40,6 +41,7 @@ class LocalPlannerNode : public rclcpp::Node {
   double max_angular_speed_;   // 最大角速度 (rad/s)
   double goal_tolerance_;      // 目标容忍距离 (m)
 
+  std::shared_ptr<map::StaticMap> map_;
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr global_path_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr local_path_pub_;

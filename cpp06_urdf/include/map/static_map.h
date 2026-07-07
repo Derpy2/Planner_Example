@@ -4,7 +4,11 @@
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <rclcpp/rclcpp.hpp>
 
+#include "common/node3d.h"
+
 namespace map {
+
+using namespace common;
 
 class StaticMap {
  public:
@@ -36,10 +40,14 @@ class StaticMap {
 
   double origin_y() const { return origin_y_; }
 
+  // 逆时针Polygon
+  std::vector<std::vector<Node3D>> obstacles() const { return obstacles_; }
+
  private:
   double resolution_;
   unsigned int width_, height_;
   double origin_x_, origin_y_;
   nav_msgs::msg::OccupancyGrid map_msg_;
+  std::vector<std::vector<Node3D>> obstacles_;
 };
 }  // namespace map

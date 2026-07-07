@@ -1,7 +1,7 @@
 #include "planner/local_planner/mpc.h"
 
 namespace local_planner {
-void LocalPlannerMPC::Init(const int nx, const int nu, const int N, double dt,
+void LocalPlannerMPC::init(const int nx, const int nu, const int N, double dt,
                            double v_ref) {
   nx_ = nx;
   nu_ = nu;
