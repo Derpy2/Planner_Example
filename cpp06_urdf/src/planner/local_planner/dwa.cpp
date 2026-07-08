@@ -221,18 +221,18 @@ void LocalPlannerDWA::visualizeSampledTrajectories(
   visualization::Color other_color(0.0f, 0.0f, 0.0f, 1.0f);
 
   int id = 0;
+  // vis for best traj
   for (const auto& sample : sampled_trajectories_) {
     if (sample.nodes.size() < 2) {
       continue;
     }
-
     std::vector<geometry_msgs::msg::Point> points;
 
     for (const auto& node : sample.nodes) {
       geometry_msgs::msg::Point pt;
       pt.x = node.getX();
       pt.y = node.getY();
-      pt.z = 0.0;
+      pt.z = sample.is_best ? 0.2 : 0.0;
       points.push_back(pt);
     }
 
