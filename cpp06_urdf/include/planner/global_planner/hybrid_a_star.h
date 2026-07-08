@@ -23,11 +23,11 @@ using common::Node3D;
 
 class HybridAStar : public GlobalPlannerBase {
  public:
-  HybridAStar(std::shared_ptr<map::StaticMap> map, const rclcpp::Logger& logger)
+  HybridAStar(std::shared_ptr<map::StaticMap> map, const rclcpp::Logger logger)
       : GlobalPlannerBase(map, logger),
         configuration_space_(common::CollisionDetection(map)) {}
 
-  HybridAStar(std::shared_ptr<map::StaticMap> map, const rclcpp::Logger& logger,
+  HybridAStar(std::shared_ptr<map::StaticMap> map, const rclcpp::Logger logger,
               const common::CollisionDetection& cs)
       : GlobalPlannerBase(map, logger), configuration_space_(cs) {}
 

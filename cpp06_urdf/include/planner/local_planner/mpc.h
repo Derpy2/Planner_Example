@@ -27,7 +27,7 @@ struct Control {
 class LocalPlannerMPC : public LocalPlannerBase {
  public:
   LocalPlannerMPC(std::shared_ptr<map::StaticMap> map,
-                  const rclcpp::Logger& logger)
+                  const rclcpp::Logger logger)
       : LocalPlannerBase(map, logger) {}
 
   void init() override { init(3, 2, 20, 0.05, 0.3); }

@@ -53,12 +53,14 @@ add_executable(local_planner_node
   src/planner/local_planner/pure_pursuit.cpp
   src/planner/local_planner/mpc.cpp
   src/planner/local_planner/dwa.cpp
+  src/visualization/visualization_manager.cpp
 )
 ament_target_dependencies(local_planner_node
   rclcpp
   nav_msgs
   geometry_msgs
   Eigen3
+  visualization_msgs
 )
 
 target_link_libraries(local_planner_node osqp::osqp OsqpEigen::OsqpEigen)
@@ -70,7 +72,7 @@ install(TARGETS
 )
 
 install(
-  DIRECTORY launch urdf rviz meshes
+  DIRECTORY launch urdf rviz meshes msg
   DESTINATION share/${PROJECT_NAME}
 )
 if(BUILD_TESTING)

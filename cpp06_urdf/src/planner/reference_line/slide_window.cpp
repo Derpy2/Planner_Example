@@ -19,7 +19,6 @@ nav_msgs::msg::Path SlideWindowReferenceLine::smoothPath(
   const size_t path_size = path.poses.size();
   for (size_t i = 0; i < path_size; ++i) {
     geometry_msgs::msg::PoseStamped smoothed_pose;
-    // smoothed_pose.header = path.poses[i].header;
     double sum_x = 0.0;
     double sum_y = 0.0;
     size_t count = 0;

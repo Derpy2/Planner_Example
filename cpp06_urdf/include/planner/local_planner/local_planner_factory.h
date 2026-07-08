@@ -14,7 +14,7 @@ class LocalPlannerFactory {
  public:
   static std::unique_ptr<LocalPlannerBase> CreateLocalPlanner(
       const LocalPlannerType& type, std::shared_ptr<map::StaticMap> map,
-      const rclcpp::Logger& logger) {
+      const rclcpp::Logger logger) {
     switch (type) {
       case MPC: {
         return std::make_unique<LocalPlannerMPC>(map, logger);

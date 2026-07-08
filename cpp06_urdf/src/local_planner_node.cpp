@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "common/util.h"
+#include "planner/local_planner/dwa.h"
 
 LocalPlannerNode::LocalPlannerNode() : Node("local_planner_node") {
   local_path_length_ =
@@ -34,6 +35,9 @@ LocalPlannerNode::LocalPlannerNode() : Node("local_planner_node") {
       this->create_publisher<nav_msgs::msg::Path>("local_path", 10);
   cmd_vel_pub_ =
       this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
+  dwa_vis_marker_pub_ =
+      this->create_publisher<visualization_msgs::msg::MarkerArray>(
+          "dwa_sampled_trajectories", 10);
 
   timer_ = this->create_wall_timer(
       std::chrono::milliseconds(50),
@@ -137,14 +141,14 @@ void LocalPlannerNode::planTimerCallback() {
     local_path.poses.push_back(global_path_.poses[i]);
   }
 
-  if (local_path.poses.size() < 2) {
+  if (local_path.poses.size() < 5) {
     return;
   }
 
   std::call_once(flag, [&]() {
     this->local_planner_ =
         local_planner::LocalPlannerFactory::CreateLocalPlanner(
-            local_planner::LocalPlannerType::DWA, map_, this->get_logger());
+            local_planner::LocalPlannerType::DWA, map_, get_logger());
     local_planner_->init();
   });
 
@@ -159,6 +163,14 @@ void LocalPlannerNode::planTimerCallback() {
   RCLCPP_INFO(this->get_logger(), "Cmd: v=%.2f, omega=%.2f", cmd.linear.x,
               cmd.angular.z);
   cmd_vel_pub_->publish(cmd);
+
+  local_planner_->visualizeSampledTrajectories("map");
+
+  auto markers =
+      visualization::VisualizationManager::Instance().GetAllMarkers();
+  if (!markers.markers.empty()) {
+    dwa_vis_marker_pub_->publish(markers);
+  }
 }
 
 int main(int argc, char** argv) {

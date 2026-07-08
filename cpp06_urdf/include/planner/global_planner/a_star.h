@@ -10,7 +10,7 @@ namespace global_planner {
 
 class AStar : public GlobalPlannerBase {
  public:
-  AStar(std::shared_ptr<map::StaticMap> map, const rclcpp::Logger& logger)
+  AStar(std::shared_ptr<map::StaticMap> map, const rclcpp::Logger logger)
       : GlobalPlannerBase(map, logger) {}
 
   nav_msgs::msg::Path searchPath() override {

@@ -3,7 +3,7 @@
 namespace global_planner {
 
 RRTStar::RRTStar(std::shared_ptr<map::StaticMap> map,
-                 const rclcpp::Logger& logger)
+                 const rclcpp::Logger logger)
     : GlobalPlannerBase(map, logger), collision_detector_(map) {
   double min_x = 0.0, max_x = map_->width();
   double min_y = 0.0, max_y = map_->height();

@@ -9,7 +9,7 @@ using namespace common;
 
 class PurePursuit : public LocalPlannerBase {
  public:
-  PurePursuit(std::shared_ptr<map::StaticMap> map, const rclcpp::Logger& logger)
+  PurePursuit(std::shared_ptr<map::StaticMap> map, const rclcpp::Logger logger)
       : LocalPlannerBase(map, logger) {}
 
   void init() override {}

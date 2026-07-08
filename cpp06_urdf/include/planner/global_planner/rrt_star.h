@@ -26,7 +26,7 @@ struct TreeNode {
 
 class RRTStar : public GlobalPlannerBase {
  public:
-  RRTStar(std::shared_ptr<map::StaticMap> map, const rclcpp::Logger& logger);
+  RRTStar(std::shared_ptr<map::StaticMap> map, const rclcpp::Logger logger);
 
   nav_msgs::msg::Path searchPath() override;
 

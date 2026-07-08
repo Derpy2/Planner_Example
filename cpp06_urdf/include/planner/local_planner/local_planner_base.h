@@ -12,7 +12,7 @@ namespace local_planner {
 class LocalPlannerBase {
  public:
   LocalPlannerBase(std::shared_ptr<map::StaticMap> map,
-                   const rclcpp::Logger& logger)
+                   const rclcpp::Logger logger)
       : map_(map), logger_(logger) {}
 
   virtual ~LocalPlannerBase() = default;
@@ -35,13 +35,16 @@ class LocalPlannerBase {
     current_twist_ = twist;
   }
 
+  virtual void visualizeSampledTrajectories(
+      const std::string& frame_id = "map") {}
+
  protected:
   std::shared_ptr<map::StaticMap> map_ = nullptr;
   size_t nearest_idx_;
   nav_msgs::msg::Path smoothed_local_;
   geometry_msgs::msg::PoseWithCovariance current_pose_;
   geometry_msgs::msg::TwistWithCovariance current_twist_;
-  const rclcpp::Logger& logger_;
+  const rclcpp::Logger logger_;
 };
 
 }  // namespace local_planner

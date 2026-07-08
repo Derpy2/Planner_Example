@@ -1,9 +1,11 @@
 #include "planner/local_planner/dwa.h"
 
+#include "common/util.h"
+
 namespace local_planner {
 
 void LocalPlannerDWA::init() {
-  max_v_ = 0.6;
+  max_v_ = 1.0;
   min_v_ = 0.0;
   max_omega_ = 1.8;
   min_omega_ = -1.8;
@@ -12,18 +14,19 @@ void LocalPlannerDWA::init() {
   max_acc_omega_ = 5.0;
   max_decl_omega_ = 5.0;
 
-  v_resolution_ = 0.05;
+  v_resolution_ = 0.1;
   omega_resolution_ = 0.1;
 
   dt_ = 0.1;
-  total_time_ = 2.0;
-  lookahead_dist_ = 20.0;
+  total_time_ = 5.0;
+  lookahead_dist_ = 1.0;
 
   safe_radius = 8.0;
 
   weight_heading_ = 2.0;
   weight_velocity_ = 0.5;
   weight_obstacle_ = 1.0;
+  weight_dist_ = 1.0;
 
   sim_step_ = total_time_ / dt_;
 }
@@ -35,13 +38,19 @@ Node3D LocalPlannerDWA::motionModel(const Node3D& start, const double v,
   if (std::fabs(omega) < eplison) {
     next.setX(start.getX() + v * dt_ * std::cos(start.getT()));
     next.setY(start.getY() + v * dt_ * std::sin(start.getT()));
+    next.setT(start.getT());
   } else {
     double r = v / omega;
     double theta_new = start.getT() + omega * dt_;
     next.setX(start.getX() +
               r * (std::sin(theta_new) - std::sin(start.getT())));
     next.setY(start.getY() -
-              r * (std::cos(start.getT()) - std::cos(theta_new)));
+              r * (std::cos(theta_new) - std::cos(start.getT())));
+    if (theta_new > M_PI) {
+      theta_new -= 2 * M_PI;
+    } else if (theta_new < -M_PI) {
+      theta_new += 2 * M_PI;
+    }
     next.setT(theta_new);
   }
   return next;
@@ -85,8 +94,9 @@ bool LocalPlannerDWA::isSafe(const std::vector<Node3D>& traj, const double v,
   return true;
 }
 
-double LocalPlannerDWA::computeCost(const std::vector<Node3D>& traj, double v,
-                                    const Node3D& goal, const double min_dist) {
+DWACost LocalPlannerDWA::computeCost(const std::vector<Node3D>& traj, double v,
+                                     const Node3D& goal,
+                                     const double min_dist) {
   // 1. heading cost
   const Node3D& end_pt = traj.back();
   double goal_theta =
@@ -94,7 +104,7 @@ double LocalPlannerDWA::computeCost(const std::vector<Node3D>& traj, double v,
   double heading_err =
       std::fabs(std::atan2(std::sin(end_pt.getT() - goal_theta),
                            std::cos(end_pt.getT() - goal_theta)));
-  double cost_heading = weight_heading_ * heading_err;
+  double cost_heading = weight_heading_ * heading_err * (v / max_v_);
 
   // 2. velocity_cost
   double cost_vel = weight_velocity_ * (max_v_ - v);
@@ -102,7 +112,13 @@ double LocalPlannerDWA::computeCost(const std::vector<Node3D>& traj, double v,
   // 3. obstacle_cost
   double cost_obs = weight_obstacle_ * (1.0 / (min_dist + 1e6));
 
-  return cost_heading + cost_vel + cost_obs;
+  // 4. dist cost
+  double dx = goal.getX() - end_pt.getX();
+  double dy = goal.getY() - end_pt.getY();
+  double cost_dist = std::hypot(dx, dy) * weight_dist_ * (v < 0.1 ? 5.0 : 1.0);
+  double total_cost = cost_heading + cost_vel + cost_obs + cost_dist;
+
+  return DWACost{cost_heading, cost_vel, cost_obs, cost_dist, total_cost};
 }
 
 geometry_msgs::msg::PoseStamped LocalPlannerDWA::getNearGoal() {
@@ -115,7 +131,7 @@ geometry_msgs::msg::PoseStamped LocalPlannerDWA::getNearGoal() {
     double dy = smoothed_local_.poses[i].pose.position.y -
                 smoothed_local_.poses[i - 1].pose.position.y;
 
-    arc_len += std::hypot(dx, dy) / map_->resolution();
+    arc_len += std::hypot(dx, dy);
     if (arc_len >= lookahead_dist_) {
       idx = i;
       break;
@@ -125,15 +141,16 @@ geometry_msgs::msg::PoseStamped LocalPlannerDWA::getNearGoal() {
 }
 
 geometry_msgs::msg::Twist LocalPlannerDWA::getControlCmd() {
-  int gx, gy;
-  map_->worldToGrid(current_pose_.pose.position.x,
-                    current_pose_.pose.position.y, gx, gy);
+  sampled_trajectories_.clear();
+  int best_traj_idx = -1;
 
-  Node3D start_node =
-      Node3D(gx, gy, current_pose_.pose.orientation.z, 0, 0, nullptr);
+  Node3D start_node = Node3D(
+      current_pose_.pose.position.x, current_pose_.pose.position.y,
+      common::yawFromQuaternion(current_pose_.pose.orientation), 0, 0, nullptr);
   geometry_msgs::msg::PoseStamped goal = getNearGoal();
-  map_->worldToGrid(goal.pose.position.x, goal.pose.position.y, gx, gy);
-  Node3D goal_node = Node3D(gx, gy, goal.pose.orientation.z, 0, 0, nullptr);
+  Node3D goal_node =
+      Node3D(goal.pose.position.x, goal.pose.position.y,
+             common::yawFromQuaternion(goal.pose.orientation), 0, 0, nullptr);
 
   double min_cost = std::numeric_limits<double>::infinity();
 
@@ -166,21 +183,62 @@ geometry_msgs::msg::Twist LocalPlannerDWA::getControlCmd() {
         continue;
       }
 
-      double cost = computeCost(traj, v, goal_node, min_dist);
-      if (cost < min_cost) {
-        min_cost = cost;
+      DWACost cost = computeCost(traj, v, goal_node, min_dist);
+
+      TrajectorySample sample;
+      sample.nodes = traj;
+      sample.v = v;
+      sample.omega = omega;
+      sample.cost = cost;
+      sample.is_best = false;
+      sampled_trajectories_.push_back(sample);
+
+      if (cost.toal_cost < min_cost) {
+        min_cost = cost.toal_cost;
         best_v = v;
         best_omega = omega;
         best_traj = traj;
+        best_traj_idx = sampled_trajectories_.size() - 1;
       }
     }
   }
-
+  if (best_traj_idx != -1) {
+    sampled_trajectories_[best_traj_idx].is_best = true;
+  }
   // 3. 生成结果
   geometry_msgs::msg::Twist cmd;
   cmd.linear.x = best_v;
   cmd.angular.z = best_omega;
   return cmd;
+}
+
+void LocalPlannerDWA::visualizeSampledTrajectories(
+    const std::string& frame_id) {
+  auto& vis = visualization::VisualizationManager::Instance();
+  vis.ClearNamespace("dwa_trajectories");
+
+  visualization::Color best_color(0.0f, 1.0f, 0.0f, 1.0f);
+  visualization::Color other_color(0.0f, 0.0f, 0.0f, 1.0f);
+
+  int id = 0;
+  for (const auto& sample : sampled_trajectories_) {
+    if (sample.nodes.size() < 2) {
+      continue;
+    }
+
+    std::vector<geometry_msgs::msg::Point> points;
+
+    for (const auto& node : sample.nodes) {
+      geometry_msgs::msg::Point pt;
+      pt.x = node.getX();
+      pt.y = node.getY();
+      pt.z = 0.0;
+      points.push_back(pt);
+    }
+
+    const auto& color = sample.is_best ? best_color : other_color;
+    vis.AddLineStrip("dwa_trajectories", id++, points, color, 0.02f, frame_id);
+  }
 }
 
 }  // namespace local_planner

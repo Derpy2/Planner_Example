@@ -6,8 +6,9 @@
 #include <rclcpp/rclcpp.hpp>
 #include <vector>
 
-#include "../include/planner/local_planner/local_planner_factory.h"
-#include "../include/planner/reference_line/reference_line_factory.h"
+#include "planner/local_planner/local_planner_factory.h"
+#include "planner/reference_line/reference_line_factory.h"
+#include "visualization/visualization_manager.h"
 
 class LocalPlannerNode : public rclcpp::Node {
  public:
@@ -46,6 +47,8 @@ class LocalPlannerNode : public rclcpp::Node {
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr local_path_pub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
+      dwa_vis_marker_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
 
   std::unique_ptr<reference_line::ReferenceLineBase> reference_line_;

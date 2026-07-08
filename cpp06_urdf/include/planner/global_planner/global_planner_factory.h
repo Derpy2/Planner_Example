@@ -17,7 +17,7 @@ class GlobalPlannerFactory {
  public:
   static std::unique_ptr<GlobalPlannerBase> CreateGlobalPlanner(
       const GlobalPlannerType& type, const std::shared_ptr<map::StaticMap>& map,
-      const rclcpp::Logger& logger) {
+      const rclcpp::Logger logger) {
     switch (type) {
       case A_STAR: {
         return std::make_unique<AStar>(map, logger);

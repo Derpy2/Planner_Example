@@ -8,7 +8,7 @@ namespace global_planner {
 class GlobalPlannerBase {
  public:
   GlobalPlannerBase(std::shared_ptr<map::StaticMap> map,
-                    const rclcpp::Logger& logger)
+                    const rclcpp::Logger logger)
       : map_(map), logger_(logger) {}
   virtual ~GlobalPlannerBase() = default;
 
@@ -24,7 +24,7 @@ class GlobalPlannerBase {
 
  protected:
   std::shared_ptr<map::StaticMap> map_ = nullptr;
-  const rclcpp::Logger& logger_;
+  const rclcpp::Logger logger_;
 
   geometry_msgs::msg::Pose start_pose_;
   geometry_msgs::msg::Pose goal_pose_;
