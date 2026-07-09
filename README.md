@@ -1,4 +1,4 @@
-# Install
+# Compile
 ```
 colcon build --cmake-args -DCMAKE_BUILD_TYPE=Debug
 . install/setup.bash
