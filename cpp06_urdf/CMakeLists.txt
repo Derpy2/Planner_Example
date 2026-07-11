@@ -28,6 +28,7 @@ add_executable(global_planner_node
   src/planner/global_planner/hybrid_a_star.cpp
   src/planner/global_planner/dubins.cpp
   src/planner/global_planner/rrt_star.cpp
+  src/planner/global_planner/complete_cover_path/bcd.cpp
   src/common/node3d.cpp
   src/common/collision_detection.cpp
   src/global_planner_node.cpp
@@ -53,6 +54,7 @@ add_executable(local_planner_node
   src/planner/local_planner/pure_pursuit.cpp
   src/planner/local_planner/mpc.cpp
   src/planner/local_planner/dwa.cpp
+  src/planner/local_planner/teb.cpp
   src/visualization/visualization_manager.cpp
 )
 ament_target_dependencies(local_planner_node
@@ -103,6 +105,15 @@ if(BUILD_TESTING)
     visualization_msgs
   )
   target_link_libraries(test_hybrid_a_star ${OMPL_LIBRARIES})
+
+  ament_add_gtest(test_bcd
+    test/test_bcd.cpp
+    src/planner/global_planner/complete_cover_path/bcd.cpp
+  )
+  target_include_directories(test_bcd PUBLIC include)
+  ament_target_dependencies(test_bcd
+    rclcpp
+  )
 endif()
 
 ament_package()

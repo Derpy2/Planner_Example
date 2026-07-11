@@ -1,3 +1,5 @@
+#pragma once
+
 #include <tf2_ros/transform_broadcaster.h>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -12,6 +14,7 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include "../include/map/static_map.h"
+#include "../include/planner/global_planner/complete_cover_path/bcd.h"
 #include "../include/planner/global_planner/global_planner_factory.h"
 
 class GlobalPlannerNode : public rclcpp::Node {

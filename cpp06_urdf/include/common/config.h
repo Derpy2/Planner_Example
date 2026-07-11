@@ -52,6 +52,17 @@ static const float dubinsStepSize = 1;
 static const double lookaheadDistance = 0.6;
 static const double maxLinearSpeed = 0.4;
 static const double maxAngularSpeed = 1.0;
+
+/// =============TEB Local Planner config================
+static const double teb_dt_ref = 0.5;
+static const int teb_n_points = 15;
+static const double teb_wheelbase = 0.5;
+static const double teb_w_obstacle = 100.0;
+static const double teb_w_smoothness = 50.0;
+static const double teb_w_velocity = 30.0;
+static const double teb_w_time = 10.0;
+static const double teb_w_kinematic = 20.0;
+static const int teb_optimization_iterations = 50;
 }  // namespace constants
 
 }  // namespace common
