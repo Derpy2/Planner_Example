@@ -6,9 +6,10 @@
 #include "local_planner_base.h"
 #include "mpc.h"
 #include "pure_pursuit.h"
+#include "teb.h"
 
 namespace local_planner {
-enum LocalPlannerType { MPC = 0, DWA = 1, PURE_PURSUIT = 2 };
+enum LocalPlannerType { MPC = 0, DWA = 1, PURE_PURSUIT = 2, TEB = 3 };
 
 class LocalPlannerFactory {
  public:
@@ -24,6 +25,9 @@ class LocalPlannerFactory {
       }
       case PURE_PURSUIT: {
         return std::make_unique<PurePursuit>(map, logger);
+      }
+      case TEB: {
+        return std::make_unique<TebLocalPlanner>(map, logger);
       }
       default:
         throw std::invalid_argument("Unknown local planner type");
