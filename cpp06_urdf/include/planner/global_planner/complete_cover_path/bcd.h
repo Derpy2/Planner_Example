@@ -1,5 +1,6 @@
 #pragma once
 
+#include <list>
 #include <map>
 
 #include "common/bcd_data.h"
@@ -16,30 +17,38 @@ class BCDDecomposer {
   BCDDecomposer() {}
 
   // 输入边缘，障碍物列表
-  std::vector<Cell> decompose(const Polygon2D& boundary,
-                              const std::vector<Polygon2D>& obstacles);
-
-  // 单个Cell生成蛇形牛耕路径
-  std::vector<Node2D> generateSnakePath(const Cell& cell, double cut_width);
-
-  std::vector<EventPoint> generateEvents(const Polygon2D& bound,
-                                         const std::vector<Polygon2D>& obstacle);
-
-  EventType classifyVertex(const Node2D& v, const Polygon2D& polygon);
+  std::vector<Polygon2D> decompose(const Polygon2D& boundary,
+                                   const std::vector<Polygon2D>& obstacles);
 
  private:
-  std::vector<Segment2D> collectAllEdges(
+  Polygon2D preProcessPolygon(const Polygon2D& polygon);
+
+  std::vector<BCDNode2D> getSortedPoints(
       const Polygon2D& boundary, const std::vector<Polygon2D>& obstacles);
 
-  std::vector<YInterval> getYIntervals(double x_scan,
-                                       const std::vector<ActiveEdge>& ael);
+  void processEvent(const Polygon2D& bound,
+                    const std::vector<Polygon2D>& obstacles, BCDNode2D& node,
+                    std::vector<BCDNode2D>* sorted_points,
+                    std::vector<Node2D>* processed_points,
+                    std::list<Segment2D>* L,
+                    std::list<Polygon2D>* open_polygons,
+                    std::vector<Polygon2D>* closed_polygons);
 
-  std::map<int, std::vector<int>> matchIntervals(
-      const std::vector<YInterval>& prev_inter,
-      const std::vector<YInterval>& curr_inter);
+  bool cleanupPolygon(Polygon2D* poly);
 
-  Cell buildCell(double x_l, double x_r, const YInterval& left_int,
-                 const YInterval& right_int);
+  bool outOfBoundary(const Polygon2D& bound,
+                     const std::vector<Polygon2D>& obstacles, const Node2D& pt);
+
+  BCDNode2D getPrev(const Polygon2D& bound,
+                    const std::vector<Polygon2D>& obstacles,
+                    const BCDNode2D& node, int num);
+
+  BCDNode2D getNext(const Polygon2D& bound,
+                    const std::vector<Polygon2D>& obstacles,
+                    const BCDNode2D& node, int num);
+
+  std::vector<Node2D> getIntersections(const std::list<Segment2D>& L,
+                                       const BCDNode2D& node);
 
  private:
   int interval_id_counter_ = 0;

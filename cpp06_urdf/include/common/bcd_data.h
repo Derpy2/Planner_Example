@@ -3,13 +3,6 @@
 #include "common/node2d.h"
 
 namespace common {
-// BCD单元格
-struct Cell {
-  Polygon2D polygon;
-  double x_left, x_right;
-  std::vector<int> interval_ids;
-};
-
 // 临界点类型
 enum EventType {
   NONE = 0,
@@ -42,6 +35,19 @@ struct ActiveEdge {
   double y_cross;
   ActiveEdge(Segment2D s, double x, double y)
       : seg(s), x_cross(x), y_cross(y) {}
+};
+
+struct BCDNode2D {
+  Node2D pt;
+  bool is_boundary;
+  int polygon_idx;
+  int obs_idx;
+
+  BCDNode2D(Node2D point, bool is_bound, int idx, int obs_index)
+      : pt(point),
+        is_boundary(is_bound),
+        polygon_idx(idx),
+        obs_idx(obs_index) {}
 };
 
 // ===============Function ================
