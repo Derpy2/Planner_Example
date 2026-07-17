@@ -16,13 +16,13 @@ class BCDDecomposer {
  public:
   BCDDecomposer() {}
 
+  Polygon2D preProcessPolygon(const Polygon2D& polygon);
+
   // 输入边缘，障碍物列表
   std::vector<Polygon2D> decompose(const Polygon2D& boundary,
                                    const std::vector<Polygon2D>& obstacles);
 
  private:
-  Polygon2D preProcessPolygon(const Polygon2D& polygon);
-
   std::vector<BCDNode2D> getSortedPoints(
       const Polygon2D& boundary, const std::vector<Polygon2D>& obstacles);
 

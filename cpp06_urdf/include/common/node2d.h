@@ -61,7 +61,7 @@ static inline bool colinear(const Node2D& a, const Node2D& b, const Node2D& c) {
 
 static inline bool isPointInPolygon(const Node2D& point,
                                     const Polygon2D& polygon) {
-  // 射线法判断点在多边形内
+  // 射线法判断点在多边形内(在边上属于内部)
   const int pt_size = polygon.size();
   bool inside = false;
   for (int i = 0; i < pt_size; ++i) {
@@ -70,7 +70,7 @@ static inline bool isPointInPolygon(const Node2D& point,
 
     // 射线检测
     if ((point.y > a.y) != (point.y > b.y) &&
-        (point.x < (point.y - b.y) / (a.y - b.y * (a.x - b.x) + b.x))) {
+        (point.x < (point.y - b.y) / (a.y - b.y) * (a.x - b.x) + b.x)) {
       inside = !inside;
     }
   }

@@ -59,17 +59,15 @@ std::vector<BCDNode2D> BCDDecomposer::getSortedPoints(
   std::sort(sorted_points.begin(), sorted_points.end(),
             [](const BCDNode2D& a, const BCDNode2D& b) {
               if (std::fabs(a.pt.x - b.pt.x) < epsilon) {
-                return a.pt.y > b.pt.y;
+                return a.pt.y < b.pt.y;
               }
-              return a.pt.x > b.pt.y;
+              return a.pt.x < b.pt.x;
             });
   return sorted_points;
 }
 
 std::vector<Polygon2D> BCDDecomposer::decompose(
     const Polygon2D& boundary, const std::vector<Polygon2D>& obstacles) {
-  // interval_id_counter_ = 0;
-
   Polygon2D new_boundary = preProcessPolygon(boundary);
   std::vector<Polygon2D> new_obstacles;
   for (size_t i = 0; i < obstacles.size(); ++i) {
@@ -209,13 +207,13 @@ void BCDDecomposer::processEvent(const Polygon2D& bound,
   } else if (!less_x(e_prev.p1, e_prev.p0) && !less_x(e_next.p1, e_next.p0)) {
     // 两个向量都朝右
     Node2D p_on_lower = (e_lower.p0 == e_upper.p0) ? e_lower.p1 : e_lower.p0;
-
+    // 确保沿Y轴方向lower在下方，upper在上方
     if (cross(e_upper.p0, e_upper.p1, p_on_lower) > epsilon) {
       std::swap(e_lower, e_upper);
     }
 
     bool open_one =
-        outOfBoundary(bound, obstacles, Node2D(node.pt.x + 1e-6, node.pt.y));
+        outOfBoundary(bound, obstacles, Node2D(node.pt.x - 1e-6, node.pt.y));
 
     // Find edge to update
     size_t e_lower_id = 0;
@@ -281,6 +279,10 @@ void BCDDecomposer::processEvent(const Polygon2D& bound,
       std::list<Segment2D>::iterator e_lower_it =
           L->insert(std::next(e_lower_id_it), e_lower);
       L->insert(std::next(e_lower_it), e_upper);
+
+      if (intersections.size() < e_lower_id + 2) {
+        return;
+      }
 
       // Add new cell
       std::list<Polygon2D>::iterator new_polygon =
@@ -429,7 +431,7 @@ bool BCDDecomposer::outOfBoundary(const Polygon2D& bound,
                                   const std::vector<Polygon2D>& obstacles,
                                   const Node2D& pt) {
   // 在 boundary 外
-  if (isPointInPolygon(pt, bound)) {
+  if (!isPointInPolygon(pt, bound)) {
     return true;
   }
 

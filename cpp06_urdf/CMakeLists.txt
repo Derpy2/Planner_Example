@@ -106,14 +106,14 @@ if(BUILD_TESTING)
   )
   target_link_libraries(test_hybrid_a_star ${OMPL_LIBRARIES})
 
-  # ament_add_gtest(test_bcd
-  #   test/test_bcd.cpp
-  #   src/planner/global_planner/complete_cover_path/bcd.cpp
-  # )
-  # target_include_directories(test_bcd PUBLIC include)
-  # ament_target_dependencies(test_bcd
-  #   rclcpp
-  # )
+  ament_add_gtest(test_bcd
+    test/test_bcd.cpp
+    src/planner/global_planner/complete_cover_path/bcd.cpp
+  )
+  target_include_directories(test_bcd PUBLIC include)
+  ament_target_dependencies(test_bcd
+    rclcpp
+  )
 endif()
 
 ament_package()
