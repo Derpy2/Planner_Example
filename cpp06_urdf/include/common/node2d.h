@@ -37,6 +37,16 @@ struct Segment2D {
   Segment2D opposite() { return Segment2D(p1, p0); }
 };
 
+struct Line2D {
+  // a*x + b*y + c = 0
+  double a, b, c;
+  Line2D(const Node2D& point, const Node2D& dir) {
+    a = -dir.y;
+    b = dir.x;
+    c = -(a * point.x + b * point.y);
+  }
+};
+
 using Polygon2D = std::vector<Node2D>;
 
 struct Pose2D : public Node2D {
@@ -45,6 +55,12 @@ struct Pose2D : public Node2D {
 };
 
 // ===========Function=============
+static inline double distance(const Node2D& a, const Node2D& b) {
+  double dx = a.x - b.x;
+  double dy = a.y - b.y;
+  return std::sqrt(dx * dx + dy * dy);
+}
+
 static inline double cross(const Node2D& a, const Node2D& b, const Node2D& c) {
   return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 }
@@ -75,6 +91,11 @@ static inline bool isPointInPolygon(const Node2D& point,
     }
   }
   return inside;
+}
+
+static inline Node2D normalizeDir(const Node2D& dir) {
+  double len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+  return Node2D(dir.x / len, dir.y / len);
 }
 
 // static double dot(const Node2D& a, const Node2D& b) {

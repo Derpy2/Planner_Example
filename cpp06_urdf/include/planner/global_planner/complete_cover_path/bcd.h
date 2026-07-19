@@ -22,6 +22,11 @@ class BCDDecomposer {
   std::vector<Polygon2D> decompose(const Polygon2D& boundary,
                                    const std::vector<Polygon2D>& obstacles);
 
+  // 对每个 cell 生成局部扫描路径，并通过 TSP 优化 cell 访问顺序，
+  // 返回总长度最短的全局覆盖路径
+  std::vector<Pose2D> generateGlobalCoverPath(
+      const std::vector<Polygon2D>& cells, double offset, const Node2D& dir);
+
  private:
   std::vector<BCDNode2D> getSortedPoints(
       const Polygon2D& boundary, const std::vector<Polygon2D>& obstacles);

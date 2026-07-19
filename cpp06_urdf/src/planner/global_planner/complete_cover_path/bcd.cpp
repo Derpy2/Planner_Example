@@ -7,13 +7,32 @@
 #include <stack>
 #include <vector>
 
+#include "planner/global_planner/complete_cover_path/sweep.h"
+
 namespace global_planner {
 
 namespace complete_cover_path {
 
 namespace {
 constexpr double epsilon = 1e-8;
+
+// 将局部扫描路径反向，并翻转朝向角
+std::vector<Pose2D> reversePath(const std::vector<Pose2D>& path) {
+  std::vector<Pose2D> reversed;
+  reversed.reserve(path.size());
+  for (auto it = path.rbegin(); it != path.rend(); ++it) {
+    double theta = it->theta + M_PI;
+    if (theta > M_PI) {
+      theta -= 2.0 * M_PI;
+    } else if (theta <= -M_PI) {
+      theta += 2.0 * M_PI;
+    }
+    reversed.emplace_back(it->x, it->y, theta);
+  }
+  return reversed;
 }
+
+}  // namespace
 
 Polygon2D BCDDecomposer::preProcessPolygon(const Polygon2D& polygon) {
   // 忽略共线点
@@ -496,6 +515,121 @@ std::vector<Node2D> BCDDecomposer::getIntersections(
     }
   }
   return intersections;
+}
+
+std::vector<Pose2D> BCDDecomposer::generateGlobalCoverPath(
+    const std::vector<Polygon2D>& cells, double offset, const Node2D& dir) {
+  std::vector<Pose2D> global_path;
+  const int n = static_cast<int>(cells.size());
+  if (n == 0) {
+    return global_path;
+  }
+
+  // 为每个 cell 生成正向与反向的局部扫描路径
+  std::vector<std::vector<Pose2D>> local_paths[2];
+  local_paths[0].resize(n);
+  local_paths[1].resize(n);
+
+  for (int i = 0; i < n; ++i) {
+    if (!Sweep::computeSweep(cells[i], offset, dir, &local_paths[0][i]) ||
+        local_paths[0][i].empty()) {
+      return {};
+    }
+    local_paths[1][i] = reversePath(local_paths[0][i]);
+  }
+
+  if (n == 1) {
+    global_path = std::move(local_paths[0][0]);
+    return global_path;
+  }
+
+  // TSP DP：状态 (mask, last, ori)，记录到达最后一个 cell 的最小转移距离
+  // dp[mask][last][ori]
+  const int max_mask = 1 << n;
+  const double INF = 1e18;
+  std::vector<std::vector<std::array<double, 2>>> dp(
+      max_mask, std::vector<std::array<double, 2>>(n, {INF, INF}));
+  // parent[mask][last][ori] = {prev_last, prev_ori}
+  std::vector<std::vector<std::array<std::pair<int, int>, 2>>> parent(
+      max_mask, std::vector<std::array<std::pair<int, int>, 2>>(
+                    n, {{{-1, -1}, {-1, -1}}}));
+
+  for (int i = 0; i < n; ++i) {
+    dp[1 << i][i][0] = 0.0;
+    dp[1 << i][i][1] = 0.0;
+  }
+
+  for (int mask = 1; mask < max_mask; ++mask) {
+    for (int last = 0; last < n; ++last) {
+      if (!(mask & (1 << last))) {
+        continue;
+      }
+      for (int ori = 0; ori < 2; ++ori) {
+        if (dp[mask][last][ori] >= INF) {
+          continue;
+        }
+        const Pose2D& exit_pt = local_paths[ori][last].back();
+        for (int next = 0; next < n; ++next) {
+          if (mask & (1 << next)) {
+            continue;
+          }
+          for (int next_ori = 0; next_ori < 2; ++next_ori) {
+            const Pose2D& entry_pt = local_paths[next_ori][next].front();
+            double cost = distance(exit_pt, entry_pt);
+            int new_mask = mask | (1 << next);
+            if (dp[new_mask][next][next_ori] > dp[mask][last][ori] + cost) {
+              dp[new_mask][next][next_ori] = dp[mask][last][ori] + cost;
+              parent[new_mask][next][next_ori] = {last, ori};
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 找出最优终点
+  int full_mask = max_mask - 1;
+  double best_cost = INF;
+  int best_last = -1;
+  int best_ori = -1;
+  for (int last = 0; last < n; ++last) {
+    for (int ori = 0; ori < 2; ++ori) {
+      if (dp[full_mask][last][ori] < best_cost) {
+        best_cost = dp[full_mask][last][ori];
+        best_last = last;
+        best_ori = ori;
+      }
+    }
+  }
+
+  if (best_last < 0) {
+    return {};
+  }
+
+  // 回溯得到访问顺序
+  std::vector<std::pair<int, int>> order;
+  int mask = full_mask;
+  int last = best_last;
+  int ori = best_ori;
+  while (true) {
+    order.emplace_back(last, ori);
+    auto& pr = parent[mask][last][ori];
+    if (pr.first < 0) {
+      break;
+    }
+    mask ^= (1 << last);
+    last = pr.first;
+    ori = pr.second;
+  }
+  std::reverse(order.begin(), order.end());
+
+  // 按顺序拼接局部路径
+  for (const auto& cell_order : order) {
+    const auto& local = local_paths[cell_order.second][cell_order.first];
+    global_path.insert(global_path.end(), local.begin(), local.end());
+  }
+
+  return global_path;
 }
 
 }  // namespace complete_cover_path
