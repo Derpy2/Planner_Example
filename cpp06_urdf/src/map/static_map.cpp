@@ -1,4 +1,4 @@
-#include "../include/map/static_map.h"
+#include "map/static_map.h"
 
 namespace map {
 StaticMap::StaticMap() {
@@ -22,10 +22,12 @@ void StaticMap::buildMap() {
   map_msg_.info.origin.orientation.w = 1.0;
   map_msg_.data.assign(width_ * height_, 0);
   // Rectangular obstacles (xmin, ymin, xmax, ymax)
-  addObstacle(-2.0, -1.0, 1.0, 2.0);
+  addBoundary(-5.0, -5.0, 5.0, 5.0);
+  // addObstacle(-2.0, -1.0, 1.0, 2.0);
   addObstacle(1.0, -3.0, 2.0, 0.0);
   addObstacle(-3.5, 1.5, -1.5, 2.5);
   addObstacle(2.5, 1.0, 3.5, 3.5);
+
   // Walls around the map
   for (int x = 0; x < (int)width_; ++x) {
     map_msg_.data[idx(x, 0)] = 100;
@@ -35,6 +37,19 @@ void StaticMap::buildMap() {
     map_msg_.data[idx(0, y)] = 100;
     map_msg_.data[idx(width_ - 1, y)] = 100;
   }
+}
+
+void StaticMap::addBoundary(double xmin, double ymin, double xmax,
+                            double ymax) {
+  int gx0, gy0, gx1, gy1;
+  worldToGrid(xmin, ymin, gx0, gy0);
+  worldToGrid(xmax, ymax, gx1, gy1);
+
+  boundary_.clear();
+  boundary_.emplace_back(gx0, gy0);
+  boundary_.emplace_back(gx1, gy0);
+  boundary_.emplace_back(gx1, gy1);
+  boundary_.emplace_back(gx0, gy1);
 }
 
 void StaticMap::addObstacle(double xmin, double ymin, double xmax,
@@ -50,11 +65,11 @@ void StaticMap::addObstacle(double xmin, double ymin, double xmax,
     }
   }
 
-  std::vector<Node3D> polygon;
-  polygon.emplace_back(gx0, gy0, 0, 0, 0, nullptr);
-  polygon.emplace_back(gx1, gy0, 0, 0, 0, nullptr);
-  polygon.emplace_back(gx1, gy1, 0, 0, 0, nullptr);
-  polygon.emplace_back(gx0, gy1, 0, 0, 0, nullptr);
+  Polygon2D polygon;
+  polygon.emplace_back(gx0, gy0);
+  polygon.emplace_back(gx1, gy0);
+  polygon.emplace_back(gx1, gy1);
+  polygon.emplace_back(gx0, gy1);
   obstacles_.emplace_back(polygon);
 }
 
@@ -66,6 +81,31 @@ void StaticMap::worldToGrid(double wx, double wy, int& gx, int& gy) const {
 void StaticMap::gridToWorld(int gx, int gy, double& wx, double& wy) const {
   wx = origin_x_ + (gx + 0.5) * resolution_;
   wy = origin_y_ + (gy + 0.5) * resolution_;
+}
+
+common::Polygon2D StaticMap::getBoundaryWorld() {
+  common::Polygon2D bound_2d;
+  double wx, wy;
+  bound_2d.resize(boundary_.size());
+  for (auto& pt : boundary_) {
+    gridToWorld(pt.x, pt.y, wx, wy);
+    bound_2d.emplace_back(Node2D(wx, wy));
+  }
+  return bound_2d;
+}
+
+std::vector<common::Polygon2D> StaticMap::getObstaclesWorld() {
+  std::vector<common::Polygon2D> obstacles_2d;
+  double wx, wy;
+  for (auto& obs : obstacles_) {
+    common::Polygon2D obstacle;
+    for (auto& pt : obs) {
+      gridToWorld(pt.x, pt.y, wx, wy);
+      obstacle.emplace_back(wx, wy);
+    }
+    obstacles_2d.emplace_back(obstacle);
+  }
+  return obstacles_2d;
 }
 
 }  // namespace map

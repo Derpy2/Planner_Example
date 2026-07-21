@@ -4,7 +4,9 @@
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <rclcpp/rclcpp.hpp>
 
+#include "common/node2d.h"
 #include "common/node3d.h"
+#include "map/common/kd_tree.h"
 
 namespace map {
 
@@ -17,6 +19,8 @@ class StaticMap {
   void buildMap();
 
   void addObstacle(double xmin, double ymin, double xmax, double ymax);
+
+  void addBoundary(double xmin, double ymin, double xmax, double ymax);
 
   inline int idx(int x, int y) const { return y * (int)width_ + x; }
 
@@ -40,14 +44,25 @@ class StaticMap {
 
   double origin_y() const { return origin_y_; }
 
-  // 逆时针Polygon
-  std::vector<std::vector<Node3D>> obstacles() const { return obstacles_; }
+  Polygon2D boundary() const { return boundary_; }
+
+  std::vector<Polygon2D> obstacles() const { return obstacles_; }
+
+  Polygon2D getBoundaryWorld();
+
+  std::vector<Polygon2D> getObstaclesWorld();
+
+  // void buildKDTree();
 
  private:
   double resolution_;
   unsigned int width_, height_;
   double origin_x_, origin_y_;
   nav_msgs::msg::OccupancyGrid map_msg_;
-  std::vector<std::vector<Node3D>> obstacles_;
+
+  // 逆时针Polygon
+  Polygon2D boundary_;
+  std::vector<Polygon2D> obstacles_;
+  std::shared_ptr<KDTree> kd_tree_;
 };
 }  // namespace map

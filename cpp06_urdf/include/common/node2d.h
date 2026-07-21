@@ -13,6 +13,14 @@ constexpr double epsilon = 1e-8;
 struct Node2D {
   double x, y;
   Node2D(double x_ = 0.0, double y_ = 0.0) : x(x_), y(y_) {}
+  Node2D operator+(const Node2D& other) const {
+    return Node2D(x + other.x, y + other.y);
+  }
+
+  Node2D operator-(const Node2D& other) const {
+    return Node2D(x - other.x, y - other.y);
+  }
+
   bool operator<(const Node2D& other) const {
     if (std::fabs(x - other.x) < epsilon) {
       return y < other.y;
