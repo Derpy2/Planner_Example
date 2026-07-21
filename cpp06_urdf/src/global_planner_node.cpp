@@ -9,6 +9,7 @@
 #include <queue>
 #include <vector>
 
+#include "common/config.h"
 #include "visualization/visualization_manager.h"
 
 GlobalPlannerNode::GlobalPlannerNode() : Node("global_planner_node") {
@@ -114,17 +115,35 @@ void GlobalPlannerNode::planAndPublish(const geometry_msgs::msg::Pose& start,
   std::call_once(flag, [&]() {
     this->global_planner_ =
         global_planner::GlobalPlannerFactory::CreateGlobalPlanner(
-            global_planner::HYBRID_A_STAR, map_, get_logger());
+            global_planner::A_STAR, map_, get_logger());
   });
 
-  global_planner_->setStartPose(start);
-  global_planner_->setGoalPose(goal);
-  nav_msgs::msg::Path path = global_planner_->searchPath();
-  path.header.frame_id = "map";
-  path.header.stamp = now();
-  path_pub_->publish(path);
-  RCLCPP_INFO(get_logger(), "Path published with %zu poses.",
-              path.poses.size());
+  if (common::constants::enable_cover_path) {
+    // set complete cover param
+    common::Polygon2D boundary = map_->getBoundaryWorld();
+    std::vector<common::Polygon2D> obstacles = map_->getObstaclesWorld();
+    global_planner_->setCoverArea(boundary, obstacles);
+
+    global_planner_->setSweepParams(0.4, common::Node2D(1.0, 0.0));
+
+    global_planner_->setStartPose(start);
+    global_planner_->setGoalPose(goal);
+    nav_msgs::msg::Path path = global_planner_->generateCompleteCoverPath();
+    path.header.frame_id = "map";
+    path.header.stamp = now();
+    path_pub_->publish(path);
+    RCLCPP_INFO(get_logger(), "Path published with %zu poses.",
+                path.poses.size());
+  } else {
+    global_planner_->setStartPose(start);
+    global_planner_->setGoalPose(goal);
+    nav_msgs::msg::Path path = global_planner_->searchPath();
+    path.header.frame_id = "map";
+    path.header.stamp = now();
+    path_pub_->publish(path);
+    RCLCPP_INFO(get_logger(), "Path published with %zu poses.",
+                path.poses.size());
+  }
 }
 
 void GlobalPlannerNode::publishRobotPose() {

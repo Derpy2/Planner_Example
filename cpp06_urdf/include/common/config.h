@@ -5,9 +5,12 @@
 namespace common {
 
 namespace constants {
-
+/// =============Vehicle config================
 static const float vehicle_width = 0.4;
 static const float vehicle_length = 0.5;
+
+/// =============Global planner config================
+static const bool enable_cover_path = true;
 
 /// =============Hybrid A star config================
 /// [m] --- The minimum turning radius of the vehicle

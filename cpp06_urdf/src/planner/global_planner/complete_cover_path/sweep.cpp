@@ -3,6 +3,10 @@
 namespace global_planner {
 namespace complete_cover_path {
 
+namespace {
+constexpr double epsilon = 1e-8;
+}
+
 std::vector<Node2D> Sweep::sortPointsToLine(const Polygon2D& poly,
                                             const Node2D& dir) {
   // dir 与扫描线同向，dir为单位向量
@@ -25,6 +29,8 @@ bool Sweep::computeSweep(const Polygon2D& poly, const double offset,
   }
 
   const Node2D unit_dir = normalizeDir(dir);
+  const Node2D obstacle_gap = Node2D(unit_dir.x * 0.4, unit_dir.y * 0.4);
+  // 沿扫描线法向量排列，由近到远
   std::vector<Node2D> sorted_pts = sortPointsToLine(poly, dir);
   // 获得cell整体offset
   double cell_offset =
@@ -57,12 +63,12 @@ bool Sweep::computeSweep(const Polygon2D& poly, const double offset,
       double d1 = sweep_line.a * p1.x + sweep_line.b * p1.y + sweep_line.c;
 
       // 边与扫描线平行或共线
-      if (std::fabs(d0 - d1) < 1e-8) {
+      if (std::fabs(d0 - d1) < epsilon) {
         continue;
       }
 
       double t = d0 / (d0 - d1);
-      if (t >= -1e-8 && t <= 1.0 + 1e-8) {
+      if (t >= -epsilon && t <= 1.0 + epsilon) {
         intersections.emplace_back(p0.x + t * (p1.x - p0.x),
                                    p0.y + t * (p1.y - p0.y));
       }
@@ -82,20 +88,22 @@ bool Sweep::computeSweep(const Polygon2D& poly, const double offset,
               });
 
     // 去除重复交点
-    std::vector<Node2D> unique_intersections;
-    for (const auto& pt : intersections) {
-      if (unique_intersections.empty() ||
-          std::fabs(unique_intersections.back().x - pt.x) > 1e-8 ||
-          std::fabs(unique_intersections.back().y - pt.y) > 1e-8) {
-        unique_intersections.push_back(pt);
-      }
-    }
+    // std::vector<Node2D> unique_intersections;
+    // for (const auto& pt : intersections) {
+    //   if (unique_intersections.empty() ||
+    //       std::fabs(unique_intersections.back().x - pt.x) > 1e-8 ||
+    //       std::fabs(unique_intersections.back().y - pt.y) > 1e-8) {
+    //     unique_intersections.push_back(pt);
+    //   }
+    // }
 
     // 每两个交点构成一段在cell内部的扫描线段
     std::vector<std::pair<Node2D, Node2D>> segments;
-    for (size_t i = 0; i + 1 < unique_intersections.size(); i += 2) {
-      segments.emplace_back(unique_intersections[i],
-                            unique_intersections[i + 1]);
+    for (size_t i = 0; i + 1 < intersections.size(); i += 2) {
+      // 与障碍物或者边界保持一定距离
+
+      segments.emplace_back(intersections[i] + obstacle_gap,
+                            intersections[i + 1] - obstacle_gap);
     }
 
     if (counter_clockwise) {

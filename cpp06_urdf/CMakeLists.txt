@@ -29,6 +29,8 @@ add_executable(global_planner_node
   src/planner/global_planner/dubins.cpp
   src/planner/global_planner/rrt_star.cpp
   src/planner/global_planner/complete_cover_path/bcd.cpp
+  src/planner/global_planner/complete_cover_path/sweep.cpp
+  src/planner/global_planner/global_planner_base.cpp
   src/common/node3d.cpp
   src/common/collision_detection.cpp
   src/global_planner_node.cpp
@@ -109,10 +111,25 @@ if(BUILD_TESTING)
   ament_add_gtest(test_bcd
     test/test_bcd.cpp
     src/planner/global_planner/complete_cover_path/bcd.cpp
+    src/planner/global_planner/complete_cover_path/sweep.cpp
   )
   target_include_directories(test_bcd PUBLIC include)
   ament_target_dependencies(test_bcd
     rclcpp
+  )
+
+  ament_add_gtest(test_global_planner_base
+    test/test_global_planner_base.cpp
+    src/planner/global_planner/global_planner_base.cpp
+    src/planner/global_planner/complete_cover_path/bcd.cpp
+    src/planner/global_planner/complete_cover_path/sweep.cpp
+    src/planner/global_planner/a_star.cpp
+    src/map/static_map.cpp
+  )
+  target_include_directories(test_global_planner_base PUBLIC include)
+  ament_target_dependencies(test_global_planner_base
+    rclcpp
+    nav_msgs
   )
 endif()
 
