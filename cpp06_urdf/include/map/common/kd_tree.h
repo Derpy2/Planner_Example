@@ -167,8 +167,12 @@ class KDTree {
     root->need_push_down_to_right = false;
   }
 
-  bool point_cmp_x(Node2D& a, Node2D& b) { return a.x < b.x; }
-  bool point_cmp_y(Node2D& a, Node2D& b) { return a.y < b.y; }
+  static bool point_cmp_x(const Node2D& a, const Node2D& b) {
+    return a.x < b.x;
+  }
+  static bool point_cmp_y(const Node2D& a, const Node2D& b) {
+    return a.y < b.y;
+  }
 
   void build(std::vector<Node2D>& point_cloud) {
     if (root_ != nullptr) {
@@ -547,7 +551,6 @@ class KDTree {
       }
     }
 
-    int cur_search_counter;
     double dist_left_node = calcBoxDist(root->left_child, point);
     double dist_right_node = calcBoxDist(root->right_child, point);
 
@@ -610,7 +613,7 @@ class KDTree {
     searchByRange(root->right_child, boxpoint, result);
   }
   void searchByRadius(const std::shared_ptr<KDTreeNode>& root,
-                      const Node2D& point, float radius,
+                      const Node2D& point, double radius,
                       std::vector<Node2D>& result) {
     if (root == nullptr) return;
     pushDown(root);
@@ -653,7 +656,7 @@ class KDTree {
     return (fabs(a.x - b.x) < epsilon && fabs(a.y - b.y) < epsilon);
   }
   double calcDist(const Node2D& a, const Node2D& b) {
-    return (a.x - b.x) * (a.x * b.x) + (a.y - b.x) * (a.y - b.y);
+    return (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
   }
   double calcBoxDist(const std::shared_ptr<KDTreeNode>& node,
                      const Node2D& point) {
@@ -695,31 +698,38 @@ class KDTree {
                  std::vector<Node2D>& result) {
     result.clear();
     searchByRange(root_, box_of_point, result);
+    return;
   }
   void radiusSearch(const Node2D& point, const double radius,
                     std::vector<Node2D>& result) {
     result.clear();
     searchByRadius(root_, point, radius, result);
+    return;
   }
-  int addPoints(const std::vector<Node2D>& point_to_add) {
-    for (int i = 0; i < point_to_add.size(); i++) {
+  void addPoints(const std::vector<Node2D>& point_to_add) {
+    for (size_t i = 0; i < point_to_add.size(); i++) {
       addByPoint(&root_, point_to_add[i], root_->division_axis);
     }
+    return;
   }
   void addPointBoxes(std::vector<BoxPointType>& box_points) {
-    for (int i = 0; i < box_points.size(); i++) {
+    for (size_t i = 0; i < box_points.size(); i++) {
       addByRange(&root_, box_points[i]);
     }
+    return;
   }
   void deletePoints(const std::vector<Node2D>& point_to_del) {
-    for (int i = 0; i < point_to_del.size(); i++) {
+    for (size_t i = 0; i < point_to_del.size(); i++) {
       deleteByPoint(&root_, point_to_del[i]);
     }
+    return;
   }
   int deletePointBoxes(std::vector<BoxPointType>& box_points) {
-    for (int i = 0; i < box_points.size(); i++) {
-      deleteByRange(&root_, box_points[i]);
+    int tmp_counter = 0;
+    for (size_t i = 0; i < box_points.size(); i++) {
+      tmp_counter += deleteByRange(&root_, box_points[i]);
     }
+    return tmp_counter;
   }
 
   void pushDown(const std::shared_ptr<KDTreeNode>& root) {

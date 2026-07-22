@@ -37,6 +37,7 @@ void StaticMap::buildMap() {
     map_msg_.data[idx(0, y)] = 100;
     map_msg_.data[idx(width_ - 1, y)] = 100;
   }
+  buildKDTree();
 }
 
 void StaticMap::addBoundary(double xmin, double ymin, double xmax,
@@ -106,6 +107,45 @@ std::vector<common::Polygon2D> StaticMap::getObstaclesWorld() {
     obstacles_2d.emplace_back(obstacle);
   }
   return obstacles_2d;
+}
+
+void StaticMap::buildKDTree() {
+  if (kd_tree_ == nullptr) {
+    kd_tree_ = std::make_shared<KDTree>();
+  }
+
+  std::vector<Node2D> obstacle_points;
+  obstacle_points.reserve(width_ * height_ / 10);
+
+  for (int y = 0; y < (int)height_; ++y) {
+    for (int x = 0; x < (int)width_; ++x) {
+      if (map_msg_.data[idx(x, y)] == 100) {
+        double wx, wy;
+        gridToWorld(x, y, wx, wy);
+        obstacle_points.emplace_back(wx, wy);
+      }
+    }
+  }
+
+  kd_tree_->build(obstacle_points);
+}
+
+bool StaticMap::hasObstacleInRange(const std::vector<Node2D>& box) {
+  std::vector<Node2D> result;
+  BoxPointType kd_tree_box;
+  kd_tree_box.vertex_min[0] = box[0].x;
+  kd_tree_box.vertex_min[1] = box[0].y;
+  kd_tree_box.vertex_max[0] = box[1].x;
+  kd_tree_box.vertex_max[1] = box[1].y;
+  kd_tree_->boxSearch(kd_tree_box, result);
+
+  return !result.empty();
+}
+
+bool StaticMap::hasObstacleInRadius(const Node2D& point, const double radius) {
+  std::vector<Node2D> result;
+  kd_tree_->radiusSearch(point, radius, result);
+  return !result.empty();
 }
 
 }  // namespace map

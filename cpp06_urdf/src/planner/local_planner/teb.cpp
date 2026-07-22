@@ -158,8 +158,8 @@ void TebLocalPlanner::buildQPProblem() {
 
       double obs_x = 0.0, obs_y = 0.0;
       for (const auto& node : obs) {
-        obs_x += node.getX();
-        obs_y += node.getY();
+        obs_x += node.x;
+        obs_y += node.y;
       }
       obs_x /= obs.size();
       obs_y /= obs.size();

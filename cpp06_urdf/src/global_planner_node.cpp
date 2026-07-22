@@ -124,7 +124,7 @@ void GlobalPlannerNode::planAndPublish(const geometry_msgs::msg::Pose& start,
     std::vector<common::Polygon2D> obstacles = map_->getObstaclesWorld();
     global_planner_->setCoverArea(boundary, obstacles);
 
-    global_planner_->setSweepParams(0.4, common::Node2D(1.0, 0.0));
+    global_planner_->setSweepParams(0.6, common::Node2D(1.0, 0.0));
 
     global_planner_->setStartPose(start);
     global_planner_->setGoalPose(goal);

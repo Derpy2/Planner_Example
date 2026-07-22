@@ -52,7 +52,12 @@ class StaticMap {
 
   std::vector<Polygon2D> getObstaclesWorld();
 
-  // void buildKDTree();
+  bool hasObstacleInRange(const std::vector<Node2D>& box);
+
+  bool hasObstacleInRadius(const Node2D& point, const double radius);
+
+ private:
+  void buildKDTree();
 
  private:
   double resolution_;

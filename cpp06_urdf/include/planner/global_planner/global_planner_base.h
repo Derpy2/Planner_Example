@@ -57,7 +57,7 @@ class GlobalPlannerBase {
   // 覆盖区域与扫描参数
   common::Polygon2D cover_boundary_;
   std::vector<common::Polygon2D> cover_obstacles_;
-  double cover_offset_ = 0.0;
+  double cover_offset_ = 0.6;
   common::Node2D cover_dir_;
   bool has_cover_area_ = false;
 };

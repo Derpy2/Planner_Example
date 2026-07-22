@@ -71,11 +71,12 @@ std::vector<Node3D> LocalPlannerDWA::predictTrajectory(
 
 bool LocalPlannerDWA::isSafe(const std::vector<Node3D>& traj, const double v,
                              const double omega, double& min_d) {
-  const std::vector<std::vector<Node3D>> obstacles = map_->obstacles();
+  const std::vector<Polygon2D> obstacles = map_->obstacles();
   double min_dist = std::numeric_limits<double>::infinity();
   for (const Node3D& node : traj) {
+    Node2D node2d = Node2D(node.getX(), node.getY());
     for (const auto& obs : obstacles) {
-      double dist = pointToPolygonDistance(node, obs);
+      double dist = pointToPolygonDistance(node2d, obs);
       min_dist = std::min(dist, min_dist);
     }
   }
