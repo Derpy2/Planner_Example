@@ -14,6 +14,9 @@
 LocalPlannerNode::LocalPlannerNode() : Node("local_planner_node") {
   local_path_length_ =
       this->declare_parameter<double>("local_path_length", 2.0);
+  max_nearest_search_distance_ =
+      this->declare_parameter<double>("max_nearest_search_distance", 1.5);
+  path_density_ = this->declare_parameter<double>("path_density", 8.0);
   lookahead_distance_ =
       this->declare_parameter<double>("lookahead_distance", 0.6);
   max_linear_speed_ = this->declare_parameter<double>("max_linear_speed", 0.4);
@@ -48,8 +51,10 @@ LocalPlannerNode::LocalPlannerNode() : Node("local_planner_node") {
           reference_line::ReferenceLineType::SlideWindow);
 
   RCLCPP_INFO(this->get_logger(),
-              "Local planner started. lookahead=%.2f, max_v=%.2f, max_w=%.2f",
-              lookahead_distance_, max_linear_speed_, max_angular_speed_);
+              "Local planner started. lookahead=%.2f, max_v=%.2f, max_w=%.2f, "
+              "max_nearest_search_dist=%.2f, path_density=%.2f",
+              lookahead_distance_, max_linear_speed_, max_angular_speed_,
+              max_nearest_search_distance_, path_density_);
 }
 
 void LocalPlannerNode::globalPathCallback(
@@ -78,11 +83,31 @@ void LocalPlannerNode::odomCallback(
 size_t LocalPlannerNode::findNearestIndex(const nav_msgs::msg::Path& path,
                                           double x, double y,
                                           double theta) const {
-  size_t nearest = 0;
+  if (path.poses.empty()) {
+    return 0;
+  }
+
+  size_t nearest = last_nearest_idx_;
   double min_dist = std::numeric_limits<double>::infinity();
+  double accumulated_dist = 0.0;
+
   for (size_t i = last_nearest_idx_; i < path.poses.size(); ++i) {
+    // 限制从上次最近点开始向前搜索的最大弧长，防止全局路径密集时
+    // 最近点跳到远离当前参考线起点的位置
+    if (i > last_nearest_idx_) {
+      double dx_seg =
+          path.poses[i].pose.position.x - path.poses[i - 1].pose.position.x;
+      double dy_seg =
+          path.poses[i].pose.position.y - path.poses[i - 1].pose.position.y;
+      accumulated_dist += std::hypot(dx_seg, dy_seg);
+      if (accumulated_dist > max_nearest_search_distance_) {
+        break;
+      }
+    }
+
     double dx = path.poses[i].pose.position.x - x;
     double dy = path.poses[i].pose.position.y - y;
+    // 只考虑车体前方（或侧方）的点
     if (dx * std::cos(theta) + dy * std::sin(theta) < 0) {
       continue;
     }
@@ -91,12 +116,89 @@ size_t LocalPlannerNode::findNearestIndex(const nav_msgs::msg::Path& path,
       min_dist = dist;
       nearest = i;
     }
-    // if (dist > lookahead_distance_) {
-    //   nearest = i;
-    //   break;
-    // }
   }
   return nearest;
+}
+
+nav_msgs::msg::Path LocalPlannerNode::interpolateLocalPath(
+    const nav_msgs::msg::Path& path, size_t min_points) const {
+  if (path.poses.size() < 2) {
+    return path;
+  }
+
+  // 计算累积弧长
+  std::vector<double> cum_lengths(path.poses.size(), 0.0);
+  for (size_t i = 1; i < path.poses.size(); ++i) {
+    double dx =
+        path.poses[i].pose.position.x - path.poses[i - 1].pose.position.x;
+    double dy =
+        path.poses[i].pose.position.y - path.poses[i - 1].pose.position.y;
+    cum_lengths[i] = cum_lengths[i - 1] + std::hypot(dx, dy);
+  }
+  const double total_length = cum_lengths.back();
+  if (total_length < 1e-6) {
+    return path;  // 所有点重合，无法插值
+  }
+
+  // 计算各原始线段的航向角；插值点采用所属线段的航向，
+  // 这样在全局路径发生航向突变的位置，参考线也会保持突变。
+  std::vector<double> segment_yaws(path.poses.size() - 1);
+  for (size_t i = 0; i + 1 < path.poses.size(); ++i) {
+    segment_yaws[i] = common::computeYaw(path.poses[i], path.poses[i + 1]);
+  }
+
+  // 按给定密度计算目标点数：8 points/m，即每隔 0.125m 一个点
+  const double spacing = 1.0 / path_density_;
+  size_t target_count =
+      static_cast<size_t>(std::ceil(total_length / spacing)) + 1;
+  if (target_count < min_points) {
+    target_count = min_points;
+  }
+
+  nav_msgs::msg::Path result;
+  result.header = path.header;
+  const double step_length =
+      total_length / static_cast<double>(target_count - 1);
+
+  for (size_t k = 0; k < target_count; ++k) {
+    const double s = std::min(k * step_length, total_length);
+
+    // 定位 s 所在的原始线段
+    size_t idx = 0;
+    for (size_t i = 1; i < cum_lengths.size(); ++i) {
+      if (s <= cum_lengths[i]) {
+        idx = i - 1;
+        break;
+      }
+    }
+
+    const double seg_len = cum_lengths[idx + 1] - cum_lengths[idx];
+    double ratio = 0.0;
+    if (seg_len > 1e-6) {
+      ratio = (s - cum_lengths[idx]) / seg_len;
+    }
+
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header = path.header;
+    // 位置线性插值，插值点严格落在全局路径的原始线段上
+    pose.pose.position.x = (1.0 - ratio) * path.poses[idx].pose.position.x +
+                           ratio * path.poses[idx + 1].pose.position.x;
+    pose.pose.position.y = (1.0 - ratio) * path.poses[idx].pose.position.y +
+                           ratio * path.poses[idx + 1].pose.position.y;
+    pose.pose.position.z = (1.0 - ratio) * path.poses[idx].pose.position.z +
+                           ratio * path.poses[idx + 1].pose.position.z;
+
+    // 直接使用所属原始线段的航向，保留航向突变
+    const double yaw = segment_yaws[idx];
+    pose.pose.orientation.x = 0.0;
+    pose.pose.orientation.y = 0.0;
+    pose.pose.orientation.z = std::sin(yaw / 2.0);
+    pose.pose.orientation.w = std::cos(yaw / 2.0);
+
+    result.poses.push_back(pose);
+  }
+
+  return result;
 }
 
 void LocalPlannerNode::planTimerCallback() {
@@ -141,6 +243,9 @@ void LocalPlannerNode::planTimerCallback() {
     local_path.poses.push_back(global_path_.poses[i]);
   }
 
+  // 点数不足时进行插值，保证后续平滑与控制器有足够路径点
+  local_path = interpolateLocalPath(local_path, 5);
+
   if (local_path.poses.size() < 5) {
     return;
   }
@@ -148,7 +253,7 @@ void LocalPlannerNode::planTimerCallback() {
   std::call_once(flag, [&]() {
     this->local_planner_ =
         local_planner::LocalPlannerFactory::CreateLocalPlanner(
-            local_planner::LocalPlannerType::MPC, map_, get_logger());
+            local_planner::LocalPlannerType::PURE_PURSUIT, map_, get_logger());
     local_planner_->init();
   });
 

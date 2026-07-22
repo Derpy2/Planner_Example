@@ -23,6 +23,11 @@ class LocalPlannerNode : public rclcpp::Node {
   size_t findNearestIndex(const nav_msgs::msg::Path& path, double x, double y,
                           double theta) const;
 
+  // 按 path_density_ 对局部路径进行等弧长插值，位置线性插值贴合全局轨迹，
+  // 航向采用所属线段的原始方向，保留全局路径上的航向突变。
+  nav_msgs::msg::Path interpolateLocalPath(const nav_msgs::msg::Path& path,
+                                           size_t min_points) const;
+
   // 全局路径缓存
   nav_msgs::msg::Path global_path_;
   bool has_global_path_{false};
@@ -36,11 +41,13 @@ class LocalPlannerNode : public rclcpp::Node {
   bool has_pose_{false};
 
   // 参数
-  double local_path_length_;   // 局部路径长度 (m)
-  double lookahead_distance_;  // 纯追踪前视距离 (m)
-  double max_linear_speed_;    // 最大线速度 (m/s)
-  double max_angular_speed_;   // 最大角速度 (rad/s)
-  double goal_tolerance_;      // 目标容忍距离 (m)
+  double local_path_length_;             // 局部路径长度 (m)
+  double max_nearest_search_distance_;   // 最近点向前搜索最大弧长 (m)
+  double path_density_;                  // 局部路径插值密度 (points/m)
+  double lookahead_distance_;            // 纯追踪前视距离 (m)
+  double max_linear_speed_;              // 最大线速度 (m/s)
+  double max_angular_speed_;             // 最大角速度 (rad/s)
+  double goal_tolerance_;                // 目标容忍距离 (m)
 
   std::shared_ptr<map::StaticMap> map_;
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr global_path_sub_;
