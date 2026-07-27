@@ -22,6 +22,8 @@ class StaticMap {
 
   void addBoundary(double xmin, double ymin, double xmax, double ymax);
 
+  void addObstacle(const Polygon2D& polygon);
+
   inline int idx(int x, int y) const { return y * (int)width_ + x; }
 
   inline bool inBounds(int x, int y) const {

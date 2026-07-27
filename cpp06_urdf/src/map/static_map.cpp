@@ -1,5 +1,7 @@
 #include "map/static_map.h"
 
+#include <algorithm>
+
 namespace map {
 StaticMap::StaticMap() {
   resolution_ = 0.05;  // 0.05 m per cell
@@ -27,6 +29,10 @@ void StaticMap::buildMap() {
   addObstacle(1.0, -3.0, 2.0, 0.0);
   addObstacle(-3.5, 1.5, -1.5, 2.5);
   addObstacle(2.5, 1.0, 3.5, 3.5);
+
+  Polygon2D obs1 =
+      Polygon2D{Node2D(0.0, 0.0), Node2D(1.0, 0.0), Node2D(1.0, 1.0)};
+  addObstacle(obs1);
 
   // Walls around the map
   for (int x = 0; x < (int)width_; ++x) {
@@ -72,6 +78,47 @@ void StaticMap::addObstacle(double xmin, double ymin, double xmax,
   polygon.emplace_back(gx1, gy1);
   polygon.emplace_back(gx0, gy1);
   obstacles_.emplace_back(polygon);
+}
+
+void StaticMap::addObstacle(const Polygon2D& polygon) {
+  if (polygon.size() < 3) {
+    return;
+  }
+  double min_x = polygon[0].x, max_x = polygon[0].x;
+  double min_y = polygon[0].y, max_y = polygon[0].y;
+  for (const auto& pt : polygon) {
+    min_x = std::min(min_x, pt.x);
+    max_x = std::max(max_x, pt.x);
+    min_y = std::min(min_y, pt.y);
+    max_y = std::max(max_y, pt.y);
+  }
+  int gx_min, gy_min, gx_max, gy_max;
+  worldToGrid(min_x, min_y, gx_min, gy_min);
+  worldToGrid(max_x, max_y, gx_max, gy_max);
+  gx_min = std::max(0, gx_min);
+  gy_min = std::max(0, gy_min);
+  gx_max = std::min((int)width_ - 1, gx_max);
+  gy_max = std::min((int)height_ - 1, gy_max);
+
+  for (int y = gy_min; y <= gy_max; ++y) {
+    for (int x = gx_min; x <= gx_max; ++x) {
+      double wx, wy;
+      gridToWorld(x, y, wx, wy);
+      Node2D pt(wx, wy);
+      if (isPointInPolygon(pt, polygon)) {
+        map_msg_.data[idx(x, y)] = 100;
+      }
+    }
+  }
+
+  Polygon2D grid_poly;
+  int gx, gy;
+  for (const auto& pt : polygon) {
+    worldToGrid(pt.x, pt.y, gx, gy);
+    grid_poly.emplace_back(Node2D(gx, gy));
+  }
+
+  obstacles_.emplace_back(grid_poly);
 }
 
 void StaticMap::worldToGrid(double wx, double wy, int& gx, int& gy) const {

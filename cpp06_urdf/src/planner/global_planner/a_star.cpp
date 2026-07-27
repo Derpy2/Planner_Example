@@ -52,7 +52,9 @@ nav_msgs::msg::Path AStar::searchPath(const double sx, const double sy,
       if (!map_->inBounds(nx, ny)) continue;
       double gx, gy;
       map_->gridToWorld(nx, ny, gx, gy);
-      if (map_->hasObstacleInRadius(common::Node2D(gx, gy), 0.1)) continue;
+      if (map_->hasObstacleInRadius(common::Node2D(gx, gy),
+                                    common::constants::a_star_obstacle_gap))
+        continue;
       int ni = map_->idx(nx, ny);
       if (map_msg.data[ni] >= 50) continue;
       double tentative = gscore[ci] + costs[k] * map_->resolution();
