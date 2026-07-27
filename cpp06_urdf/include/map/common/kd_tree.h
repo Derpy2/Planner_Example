@@ -300,7 +300,7 @@ class KDTree {
             min(left_son_ptr->node_range_x[0], right_son_ptr->node_range_x[0]),
             root->point.x);
         tmp_range_x[1] = max(
-            max(left_son_ptr->node_range_x[0], right_son_ptr->node_range_x[0]),
+            max(left_son_ptr->node_range_x[1], right_son_ptr->node_range_x[1]),
             root->point.x);
         tmp_range_y[0] = min(
             min(left_son_ptr->node_range_y[0], right_son_ptr->node_range_y[0]),
