@@ -24,6 +24,7 @@ include_directories(${EIGEN3_INCLUDE_DIRS})
 
 add_executable(global_planner_node
   src/map/static_map.cpp
+  src/map/common/kd_tree.cpp
   src/planner/global_planner/a_star.cpp
   src/planner/global_planner/hybrid_a_star.cpp
   src/planner/global_planner/dubins.cpp
@@ -48,6 +49,7 @@ target_link_libraries(global_planner_node ${OMPL_LIBRARIES})
 
 add_executable(local_planner_node
   src/map/static_map.cpp
+  src/map/common/kd_tree.cpp
   src/local_planner_node.cpp
   include/local_planner_node.h
   src/planner/reference_line/slide_window.cpp
@@ -89,6 +91,7 @@ if(BUILD_TESTING)
   ament_add_gtest(test_hybrid_a_star
     test/test_hybrid_a_star.cpp
     src/map/static_map.cpp
+    src/map/common/kd_tree.cpp
     src/planner/global_planner/hybrid_a_star.cpp
     src/planner/global_planner/dubins.cpp
     src/common/node3d.cpp
@@ -125,6 +128,7 @@ if(BUILD_TESTING)
     src/planner/global_planner/complete_cover_path/sweep.cpp
     src/planner/global_planner/a_star.cpp
     src/map/static_map.cpp
+    src/map/common/kd_tree.cpp
   )
   target_include_directories(test_global_planner_base PUBLIC include)
   ament_target_dependencies(test_global_planner_base
