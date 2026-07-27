@@ -18,7 +18,7 @@ void LocalPlannerDWA::init() {
   omega_resolution_ = 0.1;
 
   dt_ = 0.1;
-  total_time_ = 5.0;
+  total_time_ = 2.0;
   lookahead_dist_ = 1.0;
 
   safe_radius = 8.0;
@@ -113,10 +113,26 @@ DWACost LocalPlannerDWA::computeCost(const std::vector<Node3D>& traj, double v,
   // 3. obstacle_cost
   double cost_obs = weight_obstacle_ * (1.0 / (min_dist + 1e6));
 
-  // 4. dist cost
-  double dx = goal.getX() - end_pt.getX();
-  double dy = goal.getY() - end_pt.getY();
-  double cost_dist = std::hypot(dx, dy) * weight_dist_ * (v < 0.1 ? 5.0 : 1.0);
+  // 4. refline cost: DWA轨迹上的每个轨迹点到参考线最近距离的和
+  double ref_dist_sum = 0.0;
+  if (smoothed_local_.poses.size() >= 2) {
+    for (const Node3D& node : traj) {
+      Node2D pt(node.getX(), node.getY());
+      double min_ref_dist = std::numeric_limits<double>::infinity();
+      for (size_t i = 0; i + 1 < smoothed_local_.poses.size(); ++i) {
+        const auto& p0 = smoothed_local_.poses[i].pose.position;
+        const auto& p1 = smoothed_local_.poses[i + 1].pose.position;
+        Node2D seg_start(p0.x, p0.y);
+        Node2D seg_end(p1.x, p1.y);
+        double dist = pointToSegmentDistance(pt, seg_start, seg_end);
+        if (dist < min_ref_dist) {
+          min_ref_dist = dist;
+        }
+      }
+      ref_dist_sum += min_ref_dist;
+    }
+  }
+  double cost_dist = ref_dist_sum * weight_dist_;
   double total_cost = cost_heading + cost_vel + cost_obs + cost_dist;
 
   return DWACost{cost_heading, cost_vel, cost_obs, cost_dist, total_cost};

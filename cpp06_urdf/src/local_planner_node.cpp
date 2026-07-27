@@ -22,7 +22,7 @@ LocalPlannerNode::LocalPlannerNode() : Node("local_planner_node") {
   max_linear_speed_ = this->declare_parameter<double>("max_linear_speed", 0.4);
   max_angular_speed_ =
       this->declare_parameter<double>("max_angular_speed", 1.0);
-  goal_tolerance_ = this->declare_parameter<double>("goal_tolerance", 0.15);
+  goal_tolerance_ = this->declare_parameter<double>("goal_tolerance", 0.3);
 
   map_ = std::make_shared<map::StaticMap>();
   global_path_sub_ = this->create_subscription<nav_msgs::msg::Path>(
@@ -253,7 +253,7 @@ void LocalPlannerNode::planTimerCallback() {
   std::call_once(flag, [&]() {
     this->local_planner_ =
         local_planner::LocalPlannerFactory::CreateLocalPlanner(
-            local_planner::LocalPlannerType::PURE_PURSUIT, map_, get_logger());
+            local_planner::LocalPlannerType::DWA, map_, get_logger());
     local_planner_->init();
   });
 
