@@ -113,9 +113,20 @@ void GlobalPlannerNode::cmdVelCallback(
 void GlobalPlannerNode::planAndPublish(const geometry_msgs::msg::Pose& start,
                                        const geometry_msgs::msg::Pose goal) {
   std::call_once(flag, [&]() {
+    global_planner::GlobalPlannerType type;
+    if (common::constants::global_path_strategy == "a_star") {
+      type = global_planner::A_STAR;
+    } else if (common::constants::global_path_strategy == "hybrid_a_star") {
+      type = global_planner::HYBRID_A_STAR;
+    } else if (common::constants::global_path_strategy == "rrt_star") {
+      type = global_planner::RRT_STAR;
+    } else {
+      type = global_planner::A_STAR;
+    }
+
     this->global_planner_ =
-        global_planner::GlobalPlannerFactory::CreateGlobalPlanner(
-            global_planner::A_STAR, map_, get_logger());
+        global_planner::GlobalPlannerFactory::CreateGlobalPlanner(type, map_,
+                                                                  get_logger());
   });
 
   if (common::constants::enable_cover_path) {
