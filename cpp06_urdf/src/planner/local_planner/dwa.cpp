@@ -6,7 +6,7 @@ namespace local_planner {
 
 void LocalPlannerDWA::init() {
   max_v_ = 1.0;
-  min_v_ = 0.0;
+  min_v_ = -max_v_;
   max_omega_ = 1.8;
   min_omega_ = -1.8;
   max_acc_v_ = 5.0;
@@ -99,16 +99,17 @@ DWACost LocalPlannerDWA::computeCost(const std::vector<Node3D>& traj, double v,
                                      const Node3D& goal,
                                      const double min_dist) {
   // 1. heading cost
+  // Use the goal pose heading from the reference line. For reverse segments
+  // the reference line preserves the vehicle body heading, so the controller
+  // will naturally try to back into the goal direction.
   const Node3D& end_pt = traj.back();
-  double goal_theta =
-      std::atan2(goal.getY() - end_pt.getY(), goal.getX() - end_pt.getX());
   double heading_err =
-      std::fabs(std::atan2(std::sin(end_pt.getT() - goal_theta),
-                           std::cos(end_pt.getT() - goal_theta)));
-  double cost_heading = weight_heading_ * heading_err * (v / max_v_);
+      std::fabs(common::normalizeAngleDiff(end_pt.getT() - goal.getT()));
+  double cost_heading =
+      weight_heading_ * heading_err * (std::fabs(v) / max_v_);
 
-  // 2. velocity_cost
-  double cost_vel = weight_velocity_ * (max_v_ - v);
+  // 2. velocity_cost: encourage driving at the maximum speed in either gear
+  double cost_vel = weight_velocity_ * (max_v_ - std::fabs(v));
 
   // 3. obstacle_cost
   double cost_obs = weight_obstacle_ * (1.0 / (min_dist + 1e6));
@@ -182,9 +183,9 @@ geometry_msgs::msg::Twist LocalPlannerDWA::getControlCmd() {
   double max_omega_win = max_omega_;
 
   min_v_win =
-      std::max(min_v_win, current_twist_.twist.linear.z - max_acc_v_ * dt_);
+      std::max(min_v_win, current_twist_.twist.linear.x - max_acc_v_ * dt_);
   max_v_win =
-      std::min(max_v_win, current_twist_.twist.linear.z + max_acc_v_ * dt_);
+      std::min(max_v_win, current_twist_.twist.linear.x + max_acc_v_ * dt_);
   min_omega_win = std::max(
       min_omega_win, current_twist_.twist.angular.z - max_acc_omega_ * dt_);
   max_omega_win = std::min(

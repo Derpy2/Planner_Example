@@ -7,6 +7,7 @@
 
 #include "common/util.h"
 #include "local_planner_base.h"
+#include "visualization/visualization_manager.h"
 
 namespace {
 constexpr double epsilon = 1e-6;
@@ -36,6 +37,8 @@ class LocalPlannerMPC : public LocalPlannerBase {
 
   geometry_msgs::msg::Twist getControlCmd() override;
 
+  void visualizeSampledTrajectories(const std::string& frame_id = "map") override;
+
  private:
   // 1. 提取参考线轨迹
   std::vector<PathPoint> extractPathPoints(const nav_msgs::msg::Path& path);
@@ -51,6 +54,15 @@ class LocalPlannerMPC : public LocalPlannerBase {
 
   Control solveQP(const std::vector<PathPoint>& x_ref,
                   const std::vector<Control>& u_ref, const Eigen::VectorXd& x0);
+
+  // 根据优化结果提取完整控制序列，并前向仿真得到预测位姿轨迹
+  std::vector<PathPoint> predictTrajectory(
+      const Eigen::VectorXd& sol, const std::vector<Control>& u_ref,
+      const Eigen::VectorXd& x0);
+
+  // 根据车辆中心位姿生成自车box角点（逆时针）
+  std::vector<geometry_msgs::msg::Point> computeVehicleBox(double x, double y,
+                                                           double theta);
 
  private:
   int nx_ = 3;          // 状态维度
@@ -73,6 +85,9 @@ class LocalPlannerMPC : public LocalPlannerBase {
   // OSQP求解器
   OsqpEigen::Solver solver_;
   bool solver_initialized_;
+
+  // 最近一次MPC求解得到的最优预测轨迹（用于可视化）
+  std::vector<PathPoint> predicted_trajectory_;
 };
 
 }  // namespace local_planner

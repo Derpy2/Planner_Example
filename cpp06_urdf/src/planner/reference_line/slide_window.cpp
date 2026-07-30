@@ -41,19 +41,11 @@ nav_msgs::msg::Path SlideWindowReferenceLine::smoothPath(
     smoothed_path.poses.push_back(smoothed_pose);
   }
 
+  // Preserve the original orientations from the global path. This is required
+  // for reverse segments: the vehicle body heading can be opposite to the path
+  // tangent, and overwriting it with the tangent would confuse the controller.
   for (size_t i = 0; i < smoothed_path.poses.size(); ++i) {
-    double yaw = 0;
-    if (i + 1 < smoothed_path.poses.size()) {
-      yaw = common::computeYaw(smoothed_path.poses[i],
-                               smoothed_path.poses[i + 1]);
-      smoothed_path.poses[i].pose.orientation.z = std::sin(yaw / 2.0);
-      smoothed_path.poses[i].pose.orientation.w = std::cos(yaw / 2.0);
-    } else {
-      yaw = common::computeYaw(smoothed_path.poses[i - 1],
-                               smoothed_path.poses[i]);
-      smoothed_path.poses[i].pose.orientation.z = std::sin(yaw / 2.0);
-      smoothed_path.poses[i].pose.orientation.w = std::cos(yaw / 2.0);
-    }
+    smoothed_path.poses[i].pose.orientation = path.poses[i].pose.orientation;
   }
 
   return smoothed_path;

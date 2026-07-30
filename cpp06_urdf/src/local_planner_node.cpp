@@ -83,34 +83,28 @@ void LocalPlannerNode::odomCallback(
 size_t LocalPlannerNode::findNearestIndex(const nav_msgs::msg::Path& path,
                                           double x, double y,
                                           double theta) const {
+  (void)theta;
   if (path.poses.empty()) {
     return 0;
   }
 
   size_t nearest = last_nearest_idx_;
   double min_dist = std::numeric_limits<double>::infinity();
-  double accumulated_dist = 0.0;
 
-  for (size_t i = last_nearest_idx_; i < path.poses.size(); ++i) {
-    // 限制从上次最近点开始向前搜索的最大弧长，防止全局路径密集时
-    // 最近点跳到远离当前参考线起点的位置
-    if (i > last_nearest_idx_) {
-      double dx_seg =
-          path.poses[i].pose.position.x - path.poses[i - 1].pose.position.x;
-      double dy_seg =
-          path.poses[i].pose.position.y - path.poses[i - 1].pose.position.y;
-      accumulated_dist += std::hypot(dx_seg, dy_seg);
-      if (accumulated_dist > max_nearest_search_distance_) {
-        break;
-      }
-    }
+  // Search both forward and backward from the last nearest point so that
+  // reverse segments (where the closest point can be behind the vehicle body)
+  // are handled correctly.
+  const size_t search_window =
+      static_cast<size_t>(max_nearest_search_distance_ * path_density_) + 1;
+  const size_t start_idx = (last_nearest_idx_ > search_window)
+                               ? last_nearest_idx_ - search_window
+                               : 0;
+  const size_t end_idx =
+      std::min(last_nearest_idx_ + search_window, path.poses.size());
 
+  for (size_t i = start_idx; i < end_idx; ++i) {
     double dx = path.poses[i].pose.position.x - x;
     double dy = path.poses[i].pose.position.y - y;
-    // 只考虑车体前方（或侧方）的点
-    if (dx * std::cos(theta) + dy * std::sin(theta) < 0) {
-      continue;
-    }
     double dist = std::hypot(dx, dy);
     if (dist < min_dist) {
       min_dist = dist;
@@ -253,7 +247,7 @@ void LocalPlannerNode::planTimerCallback() {
   std::call_once(flag, [&]() {
     this->local_planner_ =
         local_planner::LocalPlannerFactory::CreateLocalPlanner(
-            local_planner::LocalPlannerType::DWA, map_, get_logger());
+            local_planner::LocalPlannerType::MPC, map_, get_logger());
     local_planner_->init();
   });
 

@@ -15,11 +15,11 @@ void LocalPlannerMPC::init(const int nx, const int nu, const int N, double dt,
   Q_ = Eigen::MatrixXd::Zero(nx_, nx_);
   Q_(0, 0) = 500.0;  // x误差惩罚
   Q_(1, 1) = 500.0;  // y误差惩罚
-  Q_(2, 2) = 0.1;    // theta 误差惩罚
+  Q_(2, 2) = 50.0;   // theta 误差惩罚
 
   R_ = Eigen::MatrixXd::Zero(nu_, nu_);
   R_(0, 0) = 10.0;  // v增量惩罚
-  R_(1, 1) = 2.0;   // omega 增量惩罚
+  R_(1, 1) = 5.0;   // omega 增量惩罚
 
   P_ = Q_;
 
@@ -30,11 +30,11 @@ void LocalPlannerMPC::init(const int nx, const int nu, const int N, double dt,
   x_max_(2) = M_PI;
   u_min_ = Eigen::VectorXd::Constant(nu_, -1e3);
   u_max_ = Eigen::VectorXd::Constant(nu_, 1e3);
-  u_min_(0) = 0.0;
+  u_min_(0) = -0.2;
   u_max_(0) = 0.6;
 
-  // u_min_(1) = -1.8;
-  // u_max_(1) = 1.8;
+  u_min_(1) = -1.8;
+  u_max_(1) = 1.8;
 
   solver_initialized_ = false;
 }
@@ -362,6 +362,9 @@ Control LocalPlannerMPC::solveQP(const std::vector<PathPoint>& x_ref,
   // 6. 提取结果
   Eigen::VectorXd sol = solver_.getSolution();
 
+  // 保存由该组控制量前向仿真得到的预测轨迹，用于可视化
+  predicted_trajectory_ = predictTrajectory(sol, u_ref, x0);
+
   int du0_idx = nx_;
   double delta_v = sol(du0_idx);
   double delta_omega = sol(du0_idx + 1);
@@ -373,6 +376,87 @@ Control LocalPlannerMPC::solveQP(const std::vector<PathPoint>& x_ref,
   u_opt.v = std::max(u_min_(0), std::min(u_max_(0), u_opt.v));
   u_opt.omega = std::max(u_min_(1), std::min(u_max_(1), u_opt.omega));
   return u_opt;
+}
+
+std::vector<PathPoint> LocalPlannerMPC::predictTrajectory(
+    const Eigen::VectorXd& sol, const std::vector<Control>& u_ref,
+    const Eigen::VectorXd& x0) {
+  std::vector<PathPoint> traj;
+  traj.reserve(N_ + 1);
+
+  PathPoint pt;
+  pt.x = x0(0);
+  pt.y = x0(1);
+  pt.theta = x0(2);
+  traj.push_back(pt);
+
+  for (int k = 0; k < N_; ++k) {
+    int u_idx = k * (nx_ + nu_) + nx_;
+    Control u;
+    u.v = u_ref[k].v + sol(u_idx);
+    u.omega = u_ref[k].omega + sol(u_idx + 1);
+
+    // 控制量限幅
+    u.v = std::max(u_min_(0), std::min(u_max_(0), u.v));
+    u.omega = std::max(u_min_(1), std::min(u_max_(1), u.omega));
+
+    const PathPoint& prev = traj.back();
+    PathPoint next;
+    next.x = prev.x + dt_ * u.v * std::cos(prev.theta);
+    next.y = prev.y + dt_ * u.v * std::sin(prev.theta);
+    next.theta = prev.theta + dt_ * u.omega;
+    next.theta = common::normalizeAngleDiff(next.theta);
+    traj.push_back(next);
+  }
+
+  return traj;
+}
+
+std::vector<geometry_msgs::msg::Point> LocalPlannerMPC::computeVehicleBox(
+    double x, double y, double theta) {
+  const double half_l = common::constants::vehicle_length / 2.0;
+  const double half_w = common::constants::vehicle_width / 2.0;
+
+  // 车辆坐标系下的角点：前左、前右、后右、后左
+  std::vector<std::pair<double, double>> local_corners = {{half_l, half_w},
+                                                          {half_l, -half_w},
+                                                          {-half_l, -half_w},
+                                                          {-half_l, half_w}};
+
+  std::vector<geometry_msgs::msg::Point> corners;
+  corners.reserve(local_corners.size());
+  const double c = std::cos(theta);
+  const double s = std::sin(theta);
+  for (const auto& local : local_corners) {
+    geometry_msgs::msg::Point p;
+    p.x = x + local.first * c - local.second * s;
+    p.y = y + local.first * s + local.second * c;
+    p.z = 0.0;
+    corners.push_back(p);
+  }
+  return corners;
+}
+
+void LocalPlannerMPC::visualizeSampledTrajectories(
+    const std::string& frame_id) {
+  auto& vis = visualization::VisualizationManager::Instance();
+  vis.ClearNamespace("mpc_predicted_boxes");
+
+  if (predicted_trajectory_.empty()) {
+    return;
+  }
+
+  // 每隔一个预测步长显示一个box，避免过于密集
+  const int step = 2;
+  const float alpha = 0.8f;
+  visualization::Color color(0.0f, 0.8f, 1.0f, alpha);
+
+  int id = 0;
+  for (size_t i = 0; i < predicted_trajectory_.size(); i += step) {
+    const auto& pt = predicted_trajectory_[i];
+    auto box = computeVehicleBox(pt.x, pt.y, pt.theta);
+    vis.AddPolygon("mpc_predicted_boxes", id++, box, color, 0.02f, frame_id);
+  }
 }
 
 }  // namespace local_planner

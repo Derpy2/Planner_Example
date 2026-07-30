@@ -66,7 +66,7 @@ class LocalPlannerDWA : public LocalPlannerBase {
 
  private:
   double max_v_ = 0.6;
-  double min_v_ = 0.0;
+  double min_v_ = -0.6;
   double max_omega_ = 1.0;
   double min_omega_ = -1.0;
   double max_acc_v_ = 5.0;
