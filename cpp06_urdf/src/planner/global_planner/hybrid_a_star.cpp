@@ -97,9 +97,12 @@ nav_msgs::msg::Path HybridAStar::searchPath(Node3D& start, const Node3D& goal) {
       node_succ = node_pred;
       break;
     }
-    if (constants::dubinsShot && node_pred->isInRange(goal) &&
-        node_pred->getPrim() < 3) {
-      node_succ = dubinsShot(node_pred, goal, configuration_space_);
+    if (node_pred->isInRange(goal, constants::dubinsShotDistance)) {
+      if (constants::reverse) {
+        node_succ = reedSheppShot(node_pred, goal, configuration_space_);
+      } else if (constants::dubinsShot && node_pred->getPrim() < 3) {
+        node_succ = dubinsShot(node_pred, goal, configuration_space_);
+      }
       if (node_succ != nullptr) {
         find_goal = true;
         break;
@@ -272,6 +275,58 @@ std::shared_ptr<Node3D> HybridAStar::dubinsShot(
 
   //  std::cout << "Dubins shot connected, returning the path" << "\n";
   return dubinsNodes[i - 1];
+}
+
+std::shared_ptr<Node3D> HybridAStar::reedSheppShot(
+    const std::shared_ptr<Node3D>& start, const Node3D& goal,
+    common::CollisionDetection& configuration_space) {
+  double q0[] = {start->getX(), start->getY(), start->getT()};
+  double q1[] = {goal.getX(), goal.getY(), goal.getT()};
+  ReedsSheppPath path;
+  int init_res = reeds_shepp_init(q0, q1, constants::r, &path);
+  if (init_res != 0) {
+    return nullptr;
+  }
+
+  int i = 0;
+  float x = 0.f;
+  float length = reeds_shepp_path_length(&path);
+
+  std::vector<std::shared_ptr<Node3D>> rsNodes;
+  rsNodes.resize((int)(length / constants::dubinsStepSize) + 1);
+
+  x += constants::dubinsStepSize;
+  while (x < length) {
+    double q[3];
+    reeds_shepp_path_sample(&path, x, q);
+    if (rsNodes[i] == nullptr) {
+      rsNodes[i] = std::make_shared<Node3D>(
+          q[0], q[1], normalizeHeadingRad(q[2]), 0, 0, nullptr);
+    } else {
+      rsNodes[i]->setX(q[0]);
+      rsNodes[i]->setY(q[1]);
+      rsNodes[i]->setT(normalizeHeadingRad(q[2]));
+    }
+
+    if (configuration_space.isTraversable(rsNodes[i].get())) {
+      if (i > 0) {
+        rsNodes[i]->setPred(rsNodes[i - 1]);
+      } else {
+        rsNodes[i]->setPred(start);
+      }
+
+      if (rsNodes[i] == rsNodes[i]->getPred()) {
+        std::cout << "looping reed-shepp shot";
+      }
+
+      x += constants::dubinsStepSize;
+      i++;
+    } else {
+      return nullptr;
+    }
+  }
+
+  return i > 0 ? rsNodes[i - 1] : nullptr;
 }
 
 }  // namespace global_planner

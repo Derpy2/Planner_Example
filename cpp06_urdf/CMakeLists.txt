@@ -28,6 +28,7 @@ add_executable(global_planner_node
   src/planner/global_planner/a_star.cpp
   src/planner/global_planner/hybrid_a_star.cpp
   src/planner/global_planner/dubins.cpp
+  src/planner/global_planner/reed_shepp.cpp
   src/planner/global_planner/rrt_star.cpp
   src/planner/global_planner/complete_cover_path/bcd.cpp
   src/planner/global_planner/complete_cover_path/sweep.cpp
@@ -94,6 +95,7 @@ if(BUILD_TESTING)
     src/map/common/kd_tree.cpp
     src/planner/global_planner/hybrid_a_star.cpp
     src/planner/global_planner/dubins.cpp
+    src/planner/global_planner/reed_shepp.cpp
     src/common/node3d.cpp
     src/common/collision_detection.cpp
     src/planner/global_planner/a_star.cpp
@@ -110,6 +112,34 @@ if(BUILD_TESTING)
     visualization_msgs
   )
   target_link_libraries(test_hybrid_a_star ${OMPL_LIBRARIES})
+
+  ament_add_gtest(test_reed_shepp
+    test/test_reed_shepp.cpp
+    src/planner/global_planner/reed_shepp.cpp
+  )
+  target_include_directories(test_reed_shepp PUBLIC include)
+  target_include_directories(test_reed_shepp PUBLIC ${OMPL_INCLUDE_DIRS})
+  ament_target_dependencies(test_reed_shepp
+    rclcpp
+  )
+  target_link_libraries(test_reed_shepp ${OMPL_LIBRARIES})
+
+  ament_add_gtest(test_dwa
+    test/test_dwa.cpp
+    src/planner/local_planner/dwa.cpp
+    src/common/node3d.cpp
+    src/common/collision_detection.cpp
+    src/map/static_map.cpp
+    src/map/common/kd_tree.cpp
+    src/visualization/visualization_manager.cpp
+  )
+  target_include_directories(test_dwa PUBLIC include)
+  ament_target_dependencies(test_dwa
+    rclcpp
+    nav_msgs
+    geometry_msgs
+    visualization_msgs
+  )
 
   ament_add_gtest(test_bcd
     test/test_bcd.cpp

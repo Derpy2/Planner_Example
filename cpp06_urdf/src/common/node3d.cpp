@@ -20,10 +20,10 @@ bool Node3D::isOnGrid(const int width, const int height) const {
          (int)(t / constants::deltaHeadingRad) < constants::headings;
 }
 
-bool Node3D::isInRange(const Node3D& goal) const {
+bool Node3D::isInRange(const Node3D& goal, const double radius) const {
   float dx = std::abs(x - goal.x);
   float dy = std::abs(y - goal.y);
-  return (dx * dx) + (dy * dy) < constants::dubinsShotDistance;
+  return (dx * dx) + (dy * dy) < radius * radius;
 }
 
 std::shared_ptr<Node3D> Node3D::createSuccessor(const int i) {

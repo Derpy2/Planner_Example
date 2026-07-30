@@ -18,7 +18,7 @@ static const float a_star_obstacle_gap = 0.3;
 
 /// =============Hybrid A star config================
 /// [m] --- The minimum turning radius of the vehicle
-static const float r = 36;
+static const float r = 18;
 /// A flag to toggle reversing (true = on; false = off)
 static const bool reverse = false;
 /// A flag to toggle the connection of the path via Dubin's shot (true = on;
@@ -41,7 +41,7 @@ static const float deltaHeadingRad = 2 * M_PI / (float)headings;
 static const float deltaHeadingNegRad = 2 * M_PI - deltaHeadingRad;
 /// [m] --- The distance to the goal when the analytical solution (Dubin's shot)
 /// first triggers
-static const float dubinsShotDistance = 100;
+static const float dubinsShotDistance = 20;
 /// [#] --- A movement cost penalty for turning (choosing non straight motion
 /// primitives)
 static const float penaltyTurning = 1.05;

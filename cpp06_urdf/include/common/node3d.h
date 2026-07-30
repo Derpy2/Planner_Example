@@ -91,7 +91,7 @@ class Node3D : public std::enable_shared_from_this<Node3D> {
 
   // RANGE CHECKING
   /// Determines whether it is appropriate to find a analytical solution.
-  bool isInRange(const Node3D& goal) const;
+  bool isInRange(const Node3D& goal, const double radius) const;
 
   // GRID CHECKING
   /// Validity check to test, whether the node is in the 3D array.

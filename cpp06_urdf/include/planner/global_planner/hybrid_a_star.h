@@ -14,6 +14,7 @@
 #include "common/node3d.h"
 #include "dubins.h"
 #include "global_planner_base.h"
+#include "reed_shepp.h"
 
 typedef ompl::base::SE2StateSpace::StateType State;
 
@@ -39,6 +40,10 @@ class HybridAStar : public GlobalPlannerBase {
   void updateH(Node3D& start, const Node3D& goal);
 
   std::shared_ptr<Node3D> dubinsShot(
+      const std::shared_ptr<Node3D>& start, const Node3D& goal,
+      common::CollisionDetection& configuration_space);
+
+  std::shared_ptr<Node3D> reedSheppShot(
       const std::shared_ptr<Node3D>& start, const Node3D& goal,
       common::CollisionDetection& configuration_space);
 
