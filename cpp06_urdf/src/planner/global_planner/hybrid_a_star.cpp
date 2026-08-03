@@ -273,8 +273,44 @@ std::shared_ptr<Node3D> HybridAStar::dubinsShot(
     }
   }
 
+  // 设置终点
+  {
+    double q[3];
+    dubins_path_sample(&path, length, q);
+    if (dubinsNodes[i] == nullptr) {
+      dubinsNodes[i] = std::make_shared<Node3D>(
+          q[0], q[1], normalizeHeadingRad(q[2]), 0, 0, nullptr);
+    } else {
+      dubinsNodes[i]->setX(q[0]);
+      dubinsNodes[i]->setY(q[1]);
+      dubinsNodes[i]->setT(normalizeHeadingRad(q[2]));
+    }
+    // collision check
+    if (configuration_space.isTraversable(dubinsNodes[i].get())) {
+      // set the predecessor to the previous step
+      if (i > 0) {
+        dubinsNodes[i]->setPred(dubinsNodes[i - 1]);
+      } else {
+        dubinsNodes[i]->setPred(start);
+      }
+
+      if (dubinsNodes[i] == dubinsNodes[i]->getPred()) {
+        std::cout << "looping shot";
+      }
+      i++;
+    } else {
+      //      std::cout << "Dubins shot collided, discarding the path" << "\n";
+      // delete all nodes
+      return nullptr;
+    }
+  }
+
+  if (i == 0) return nullptr;
   //  std::cout << "Dubins shot connected, returning the path" << "\n";
-  return dubinsNodes[i - 1];
+  auto goal_node = std::make_shared<Node3D>(goal.getX(), goal.getY(),
+                                            normalizeHeadingRad(goal.getT()), 0,
+                                            0, dubinsNodes[i - 1]);
+  return goal_node;
 }
 
 std::shared_ptr<Node3D> HybridAStar::reedSheppShot(
@@ -326,7 +362,11 @@ std::shared_ptr<Node3D> HybridAStar::reedSheppShot(
     }
   }
 
-  return i > 0 ? rsNodes[i - 1] : nullptr;
+  if (i == 0) return nullptr;
+  auto goal_node = std::make_shared<Node3D>(goal.getX(), goal.getY(),
+                                            normalizeHeadingRad(goal.getT()), 0,
+                                            0, rsNodes[i - 1]);
+  return goal_node;
 }
 
 }  // namespace global_planner

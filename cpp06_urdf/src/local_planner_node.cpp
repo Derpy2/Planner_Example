@@ -247,7 +247,7 @@ void LocalPlannerNode::planTimerCallback() {
   std::call_once(flag, [&]() {
     this->local_planner_ =
         local_planner::LocalPlannerFactory::CreateLocalPlanner(
-            local_planner::LocalPlannerType::MPC, map_, get_logger());
+            local_planner::LocalPlannerType::DWA, map_, get_logger());
     local_planner_->init();
   });
 

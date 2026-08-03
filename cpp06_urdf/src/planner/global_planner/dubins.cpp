@@ -40,13 +40,14 @@ int dubins_init_normalised(double alpha, double beta, double d,
 
   best_word = -1;
 
+  // 顺序对应DIRDATA
   std::vector<std::function<int(double, double, double, double*)>> funcs;
   funcs.emplace_back(dubins_LSL);
-  funcs.emplace_back(dubins_RSR);
   funcs.emplace_back(dubins_LSR);
   funcs.emplace_back(dubins_RSL);
-  funcs.emplace_back(dubins_LRL);
+  funcs.emplace_back(dubins_RSR);
   funcs.emplace_back(dubins_RLR);
+  funcs.emplace_back(dubins_LRL);
 
   for (i = 0; i < 6; i++) {
     double params[3];

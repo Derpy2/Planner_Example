@@ -105,8 +105,7 @@ DWACost LocalPlannerDWA::computeCost(const std::vector<Node3D>& traj, double v,
   const Node3D& end_pt = traj.back();
   double heading_err =
       std::fabs(common::normalizeAngleDiff(end_pt.getT() - goal.getT()));
-  double cost_heading =
-      weight_heading_ * heading_err * (std::fabs(v) / max_v_);
+  double cost_heading = weight_heading_ * heading_err * (std::fabs(v) / max_v_);
 
   // 2. velocity_cost: encourage driving at the maximum speed in either gear
   double cost_vel = weight_velocity_ * (max_v_ - std::fabs(v));
@@ -177,7 +176,7 @@ geometry_msgs::msg::Twist LocalPlannerDWA::getControlCmd() {
   std::vector<Node3D> best_traj;
 
   // 1. 设置上下限窗口
-  double min_v_win = min_v_;
+  double min_v_win = constants::reverse ? min_v_ : 0.0;
   double max_v_win = max_v_;
   double min_omega_win = min_omega_;
   double max_omega_win = max_omega_;
