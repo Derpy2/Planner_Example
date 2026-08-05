@@ -130,6 +130,7 @@ void GlobalPlannerNode::planAndPublish(const geometry_msgs::msg::Pose& start,
   });
 
   if (common::constants::enable_cover_path) {
+    // 生成全覆盖路线
     // set complete cover param
     common::Polygon2D boundary = map_->getBoundaryWorld();
     std::vector<common::Polygon2D> obstacles = map_->getObstaclesWorld();
@@ -140,6 +141,13 @@ void GlobalPlannerNode::planAndPublish(const geometry_msgs::msg::Pose& start,
     global_planner_->setStartPose(start);
     global_planner_->setGoalPose(goal);
     nav_msgs::msg::Path path = global_planner_->generateCompleteCoverPath();
+    path.header.frame_id = "map";
+    path.header.stamp = now();
+    path_pub_->publish(path);
+    RCLCPP_INFO(get_logger(), "Path published with %zu poses.",
+                path.poses.size());
+  } else if (common::constants::enable_edge_path) {
+    nav_msgs::msg::Path path = global_planner_->generateBoundaryPath();
     path.header.frame_id = "map";
     path.header.stamp = now();
     path_pub_->publish(path);

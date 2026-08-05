@@ -29,6 +29,9 @@ class GlobalPlannerBase {
   // 设置扫描参数：扫描线间距与扫描方向
   void setSweepParams(double offset, const common::Node2D& dir);
 
+  // 设置 BCD 分解的推进方向（默认 X 轴方向）
+  void setDecomposeDir(const common::Node2D& dir) { decompose_dir_ = dir; }
+
   virtual nav_msgs::msg::Path searchPath() = 0;
 
   // 生成纯覆盖路径（BCD + 牛耕法 + TSP）
@@ -37,6 +40,8 @@ class GlobalPlannerBase {
   // 生成完整路径：自车位置 -> coverage起点 -> coverage路径 -> coverage终点
   // 其中 自车位置->coverage起点 使用子类自己的 searchPath() 方法
   nav_msgs::msg::Path generateCompleteCoverPath();
+
+  nav_msgs::msg::Path generateBoundaryPath();
 
  protected:
   // 使用子类 searchPath() 规划 start 到 goal 的路径
@@ -59,6 +64,7 @@ class GlobalPlannerBase {
   std::vector<common::Polygon2D> cover_obstacles_;
   double cover_offset_ = 0.6;
   common::Node2D cover_dir_;
+  common::Node2D decompose_dir_ = common::Node2D(0.0, 1.0);
   bool has_cover_area_ = false;
 };
 }  // namespace global_planner

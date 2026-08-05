@@ -7,6 +7,7 @@
 #include <stack>
 #include <vector>
 
+#include "planner/global_planner/a_star.h"
 #include "planner/global_planner/complete_cover_path/sweep.h"
 
 namespace global_planner {
@@ -15,6 +16,28 @@ namespace complete_cover_path {
 
 namespace {
 constexpr double epsilon = 1e-8;
+
+// 将 nav_msgs::msg::Path 转换为 Pose2D 序列，航向角由相邻点方向计算
+std::vector<Pose2D> pathToPose2D(const nav_msgs::msg::Path& path) {
+  std::vector<Pose2D> result;
+  result.reserve(path.poses.size());
+  for (size_t i = 0; i < path.poses.size(); ++i) {
+    double x = path.poses[i].pose.position.x;
+    double y = path.poses[i].pose.position.y;
+    double theta = 0.0;
+    if (i + 1 < path.poses.size()) {
+      double dx = path.poses[i + 1].pose.position.x - x;
+      double dy = path.poses[i + 1].pose.position.y - y;
+      theta = std::atan2(dy, dx);
+    } else if (i > 0) {
+      double dx = x - path.poses[i - 1].pose.position.x;
+      double dy = y - path.poses[i - 1].pose.position.y;
+      theta = std::atan2(dy, dx);
+    }
+    result.emplace_back(x, y, theta);
+  }
+  return result;
+}
 
 // 将局部扫描路径反向，并翻转朝向角
 std::vector<Pose2D> reversePath(const std::vector<Pose2D>& path) {
@@ -33,6 +56,43 @@ std::vector<Pose2D> reversePath(const std::vector<Pose2D>& path) {
 }
 
 }  // namespace
+
+std::vector<Pose2D> BCDDecomposer::connectWithAStar(const Pose2D& start,
+                                                    const Pose2D& goal) const {
+  std::vector<Pose2D> connection;
+  if (!map_) {
+    return connection;
+  }
+
+  AStar planner(map_, logger_);
+  nav_msgs::msg::Path path =
+      planner.searchPath(start.x, start.y, goal.x, goal.y);
+  if (path.poses.empty()) {
+    RCLCPP_WARN(logger_,
+                "A* failed to connect coverage cells, falling back to direct "
+                "connection.");
+    return connection;
+  }
+
+  connection = pathToPose2D(path);
+  return connection;
+}
+
+Polygon2D BCDDecomposer::rotatePolygon(const Polygon2D& poly,
+                                       double angle) const {
+  const double c = std::cos(angle);
+  const double s = std::sin(angle);
+  Polygon2D rotated;
+  rotated.reserve(poly.size());
+  for (const auto& pt : poly) {
+    rotated.emplace_back(pt.x * c + pt.y * s, -pt.x * s + pt.y * c);
+  }
+  return rotated;
+}
+
+double BCDDecomposer::computeRotationAngle(const Node2D& dir) const {
+  return std::atan2(dir.y, dir.x);
+}
 
 Polygon2D BCDDecomposer::preProcessPolygon(const Polygon2D& polygon) {
   // 忽略共线点
@@ -113,6 +173,37 @@ std::vector<Polygon2D> BCDDecomposer::decompose(
   }
 
   return closed_polygons;
+}
+
+std::vector<Polygon2D> BCDDecomposer::decompose(
+    const Polygon2D& boundary, const std::vector<Polygon2D>& obstacles,
+    const Node2D& decomp_dir) {
+  double dir_len = std::hypot(decomp_dir.x, decomp_dir.y);
+  if (dir_len < epsilon) {
+    RCLCPP_ERROR(logger_,
+                 "Decompose direction is zero vector, cannot decompose.");
+    return {};
+  }
+
+  double angle = computeRotationAngle(decomp_dir);
+
+  Polygon2D rotated_boundary = rotatePolygon(boundary, angle);
+  std::vector<Polygon2D> rotated_obstacles;
+  rotated_obstacles.reserve(obstacles.size());
+  for (const auto& obs : obstacles) {
+    rotated_obstacles.emplace_back(rotatePolygon(obs, angle));
+  }
+
+  std::vector<Polygon2D> rotated_cells =
+      decompose(rotated_boundary, rotated_obstacles);
+
+  std::vector<Polygon2D> cells;
+  cells.reserve(rotated_cells.size());
+  for (auto& cell : rotated_cells) {
+    cells.emplace_back(preProcessPolygon(rotatePolygon(cell, -angle)));
+  }
+
+  return cells;
 }
 
 void BCDDecomposer::processEvent(const Polygon2D& bound,
@@ -527,15 +618,18 @@ std::vector<Pose2D> BCDDecomposer::generateGlobalCoverPath(
 
   // 为每个 cell 生成正向与反向的局部扫描路径
   std::vector<std::vector<Pose2D>> local_paths[2];
-  local_paths[0].resize(n);
-  local_paths[1].resize(n);
+  // local_paths[0].resize(n);
+  // local_paths[1].resize(n);
 
   for (int i = 0; i < n; ++i) {
-    if (!Sweep::computeSweep(cells[i], offset, dir, &local_paths[0][i]) ||
-        local_paths[0][i].empty()) {
-      return {};
+    std::vector<Pose2D> local_path;
+    // 跳过无法找到扫描线路径的cell
+    if (!Sweep::computeSweep(cells[i], offset, dir, &local_path) ||
+        local_path.empty()) {
+      continue;
     }
-    local_paths[1][i] = reversePath(local_paths[0][i]);
+    local_paths[0].emplace_back(local_path);
+    local_paths[1].emplace_back(reversePath(local_path));
   }
 
   if (n == 1) {
@@ -545,22 +639,23 @@ std::vector<Pose2D> BCDDecomposer::generateGlobalCoverPath(
 
   // TSP DP：状态 (mask, last, ori)，记录到达最后一个 cell 的最小转移距离
   // dp[mask][last][ori]
-  const int max_mask = 1 << n;
+  const int vaild_n = local_paths[0].size();
+  const int max_mask = 1 << vaild_n;
   const double INF = 1e18;
   std::vector<std::vector<std::array<double, 2>>> dp(
-      max_mask, std::vector<std::array<double, 2>>(n, {INF, INF}));
+      max_mask, std::vector<std::array<double, 2>>(vaild_n, {INF, INF}));
   // parent[mask][last][ori] = {prev_last, prev_ori}
   std::vector<std::vector<std::array<std::pair<int, int>, 2>>> parent(
       max_mask, std::vector<std::array<std::pair<int, int>, 2>>(
-                    n, {{{-1, -1}, {-1, -1}}}));
+                    vaild_n, {{{-1, -1}, {-1, -1}}}));
 
-  for (int i = 0; i < n; ++i) {
+  for (int i = 0; i < vaild_n; ++i) {
     dp[1 << i][i][0] = 0.0;
     dp[1 << i][i][1] = 0.0;
   }
 
   for (int mask = 1; mask < max_mask; ++mask) {
-    for (int last = 0; last < n; ++last) {
+    for (int last = 0; last < vaild_n; ++last) {
       if (!(mask & (1 << last))) {
         continue;
       }
@@ -569,7 +664,7 @@ std::vector<Pose2D> BCDDecomposer::generateGlobalCoverPath(
           continue;
         }
         const Pose2D& exit_pt = local_paths[ori][last].back();
-        for (int next = 0; next < n; ++next) {
+        for (int next = 0; next < vaild_n; ++next) {
           if (mask & (1 << next)) {
             continue;
           }
@@ -592,7 +687,7 @@ std::vector<Pose2D> BCDDecomposer::generateGlobalCoverPath(
   double best_cost = INF;
   int best_last = -1;
   int best_ori = -1;
-  for (int last = 0; last < n; ++last) {
+  for (int last = 0; last < vaild_n; ++last) {
     for (int ori = 0; ori < 2; ++ori) {
       if (dp[full_mask][last][ori] < best_cost) {
         best_cost = dp[full_mask][last][ori];
@@ -623,9 +718,25 @@ std::vector<Pose2D> BCDDecomposer::generateGlobalCoverPath(
   }
   std::reverse(order.begin(), order.end());
 
-  // 按顺序拼接局部路径
-  for (const auto& cell_order : order) {
-    const auto& local = local_paths[cell_order.second][cell_order.first];
+  // 按顺序拼接局部路径，若提供地图则在相邻局部路径之间用 A* 连接
+  for (size_t i = 0; i < order.size(); ++i) {
+    const auto& local = local_paths[order[i].second][order[i].first];
+
+    if (i > 0 && map_) {
+      const Pose2D& prev_exit = global_path.back();
+      const Pose2D& next_entry = local.front();
+      std::vector<Pose2D> connection = connectWithAStar(prev_exit, next_entry);
+
+      if (!connection.empty()) {
+        // A* 路径起点为 prev_exit，终点为 next_entry；跳过这两个端点以避免
+        // 与前后局部路径重复。当路径只有一点时保留该点。
+        size_t start_idx = (connection.size() > 1) ? 1 : 0;
+        size_t end_idx = connection.size() - ((connection.size() > 1) ? 1 : 0);
+        global_path.insert(global_path.end(), connection.begin() + start_idx,
+                           connection.begin() + end_idx);
+      }
+    }
+
     global_path.insert(global_path.end(), local.begin(), local.end());
   }
 

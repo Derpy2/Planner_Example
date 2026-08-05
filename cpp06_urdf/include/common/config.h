@@ -10,7 +10,8 @@ static const float vehicle_width = 0.4;
 static const float vehicle_length = 0.5;
 
 /// =============Global planner config================
-static const bool enable_cover_path = false;
+static const bool enable_cover_path = true;
+static const bool enable_edge_path = false;
 static const std::string global_path_strategy = "hybrid_a_star";
 
 /// =============A star config================

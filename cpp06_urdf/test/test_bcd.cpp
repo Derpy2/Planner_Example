@@ -206,6 +206,18 @@ namespace {
 
 }  // namespace
 
+// 计算多边形有向面积（逆时针为正）
+double polygonArea(const Polygon2D& poly) {
+  double area = 0.0;
+  int n = static_cast<int>(poly.size());
+  for (int i = 0; i < n; ++i) {
+    const Node2D& p0 = poly[i];
+    const Node2D& p1 = poly[(i + 1) % n];
+    area += p0.x * p1.y - p1.x * p0.y;
+  }
+  return std::fabs(area) * 0.5;
+}
+
 class BCDTest : public ::testing::Test {
  protected:
   void SetUp() override {}
@@ -234,6 +246,91 @@ TEST_F(BCDTest, SimpleSquareBoundary) {
       std::cout << "x: " << pt.x << " y: " << pt.y << std::endl;
     }
   }
+}
+
+TEST_F(BCDTest, DecomposeAlongXAxisMatchesDefault) {
+  Polygon2D boundary = {Node2D(0.0, 0.0), Node2D(100.0, 0.0),
+                        Node2D(100.0, 100.0), Node2D(0.0, 100.0)};
+  Polygon2D obstacle = {Node2D(40.0, 40.0), Node2D(60.0, 40.0),
+                        Node2D(60.0, 60.0), Node2D(40.0, 60.0)};
+  std::vector<Polygon2D> obstacles = {obstacle};
+
+  BCDDecomposer decomposer;
+  std::vector<Polygon2D> default_cells =
+      decomposer.decompose(boundary, obstacles);
+  std::vector<Polygon2D> x_dir_cells =
+      decomposer.decompose(boundary, obstacles, Node2D(1.0, 0.0));
+
+  EXPECT_EQ(default_cells.size(), x_dir_cells.size());
+
+  // 按面积排序后比较，避免顺序不同
+  std::vector<double> default_areas;
+  std::vector<double> x_dir_areas;
+  for (const auto& cell : default_cells) {
+    default_areas.push_back(polygonArea(cell));
+  }
+  for (const auto& cell : x_dir_cells) {
+    x_dir_areas.push_back(polygonArea(cell));
+  }
+  std::sort(default_areas.begin(), default_areas.end());
+  std::sort(x_dir_areas.begin(), x_dir_areas.end());
+
+  for (size_t i = 0; i < default_areas.size(); ++i) {
+    EXPECT_NEAR(default_areas[i], x_dir_areas[i], 1e-6);
+  }
+}
+
+TEST_F(BCDTest, DecomposeAlongYAxis) {
+  Polygon2D boundary = {Node2D(0.0, 0.0), Node2D(100.0, 0.0),
+                        Node2D(100.0, 100.0), Node2D(0.0, 100.0)};
+  Polygon2D obstacle = {Node2D(40.0, 40.0), Node2D(60.0, 40.0),
+                        Node2D(60.0, 60.0), Node2D(40.0, 60.0)};
+  std::vector<Polygon2D> obstacles = {obstacle};
+
+  BCDDecomposer decomposer;
+  std::vector<Polygon2D> cells =
+      decomposer.decompose(boundary, obstacles, Node2D(0.0, 1.0));
+
+  EXPECT_EQ(cells.size(), 4u);
+
+  double total_area = 0.0;
+  for (const auto& cell : cells) {
+    EXPECT_GE(cell.size(), 3u);
+    total_area += polygonArea(cell);
+  }
+  EXPECT_NEAR(total_area, 100.0 * 100.0 - 20.0 * 20.0, 1e-3);
+}
+
+TEST_F(BCDTest, DecomposeAlong45Degree) {
+  Polygon2D boundary = {Node2D(0.0, 0.0), Node2D(100.0, 0.0),
+                        Node2D(100.0, 100.0), Node2D(0.0, 100.0)};
+  Polygon2D obstacle = {Node2D(40.0, 40.0), Node2D(60.0, 40.0),
+                        Node2D(60.0, 60.0), Node2D(40.0, 60.0)};
+  std::vector<Polygon2D> obstacles = {obstacle};
+
+  BCDDecomposer decomposer;
+  std::vector<Polygon2D> cells =
+      decomposer.decompose(boundary, obstacles, Node2D(1.0, 1.0));
+
+  EXPECT_FALSE(cells.empty());
+
+  double total_area = 0.0;
+  for (const auto& cell : cells) {
+    EXPECT_GE(cell.size(), 3u);
+    total_area += polygonArea(cell);
+  }
+  EXPECT_NEAR(total_area, 100.0 * 100.0 - 20.0 * 20.0, 1e-3);
+}
+
+TEST_F(BCDTest, DecomposeWithZeroDirReturnsEmpty) {
+  Polygon2D boundary = {Node2D(0.0, 0.0), Node2D(100.0, 0.0),
+                        Node2D(100.0, 100.0), Node2D(0.0, 100.0)};
+
+  BCDDecomposer decomposer;
+  std::vector<Polygon2D> cells =
+      decomposer.decompose(boundary, {}, Node2D(0.0, 0.0));
+
+  EXPECT_TRUE(cells.empty());
 }
 
 TEST_F(BCDTest, SquareWithCentralObstacle) {

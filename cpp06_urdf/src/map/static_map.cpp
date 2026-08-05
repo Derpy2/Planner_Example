@@ -31,8 +31,11 @@ void StaticMap::buildMap() {
   addObstacle(2.5, 1.0, 3.5, 3.5);
 
   Polygon2D obs1 =
-      Polygon2D{Node2D(0.0, 0.0), Node2D(1.0, 0.0), Node2D(1.0, 1.0)};
+      Polygon2D{Node2D(-1.0, 0.0), Node2D(0.0, 0.0), Node2D(0.0, 1.0)};
+  Polygon2D obs2 = Polygon2D{Node2D(-4.0, -2.0), Node2D(-3.0, -3.0),
+                             Node2D(-2.0, -2.0), Node2D(-3.0, -1.0)};
   addObstacle(obs1);
+  addObstacle(obs2);
 
   // Walls around the map
   for (int x = 0; x < (int)width_; ++x) {
@@ -134,7 +137,7 @@ void StaticMap::gridToWorld(int gx, int gy, double& wx, double& wy) const {
 common::Polygon2D StaticMap::getBoundaryWorld() {
   common::Polygon2D bound_2d;
   double wx, wy;
-  bound_2d.resize(boundary_.size());
+  bound_2d.reserve(boundary_.size());
   for (auto& pt : boundary_) {
     gridToWorld(pt.x, pt.y, wx, wy);
     bound_2d.emplace_back(Node2D(wx, wy));

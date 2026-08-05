@@ -4,6 +4,7 @@
 #include <nav_msgs/msg/path.hpp>
 
 #include "planner/global_planner/complete_cover_path/bcd.h"
+#include "planner/global_planner/complete_cover_path/boundary_path.h"
 
 namespace global_planner {
 
@@ -28,9 +29,9 @@ nav_msgs::msg::Path GlobalPlannerBase::getGlobalCoverPath() {
     return path;
   }
 
-  complete_cover_path::BCDDecomposer decomposer;
+  complete_cover_path::BCDDecomposer decomposer(map_, logger_);
   std::vector<common::Polygon2D> cells =
-      decomposer.decompose(cover_boundary_, cover_obstacles_);
+      decomposer.decompose(cover_boundary_, cover_obstacles_, decompose_dir_);
   std::vector<common::Pose2D> cover_waypoints =
       decomposer.generateGlobalCoverPath(cells, cover_offset_, cover_dir_);
 
@@ -50,9 +51,9 @@ nav_msgs::msg::Path GlobalPlannerBase::generateCompleteCoverPath() {
   }
 
   // 1. 生成纯覆盖路径
-  complete_cover_path::BCDDecomposer decomposer;
+  complete_cover_path::BCDDecomposer decomposer(map_, logger_);
   std::vector<common::Polygon2D> cells =
-      decomposer.decompose(cover_boundary_, cover_obstacles_);
+      decomposer.decompose(cover_boundary_, cover_obstacles_, decompose_dir_);
   std::vector<common::Pose2D> cover_waypoints =
       decomposer.generateGlobalCoverPath(cells, cover_offset_, cover_dir_);
 
@@ -137,6 +138,16 @@ nav_msgs::msg::Path GlobalPlannerBase::convertPose2DToPath(
     path.poses.push_back(p);
   }
   return path;
+}
+
+nav_msgs::msg::Path GlobalPlannerBase::generateBoundaryPath() {
+  const common::Polygon2D& boundary = map_->getBoundaryWorld();
+  const std::vector<common::Polygon2D>& obstacles = map_->getObstaclesWorld();
+  complete_cover_path::BoundaryPathOptions option =
+      complete_cover_path::BoundaryPathOptions{0.3, 0.3, true, 8};
+
+  return complete_cover_path::BoundaryPathGenerator::generateGlobalBoundaryPath(
+      boundary, obstacles, option, start_pose_);
 }
 
 }  // namespace global_planner
