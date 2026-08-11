@@ -46,10 +46,21 @@ LocalPlannerNode::LocalPlannerNode() : Node("local_planner_node") {
       std::chrono::milliseconds(50),
       std::bind(&LocalPlannerNode::planTimerCallback, this));
 
-  reference_line_ =
-      reference_line::ReferenceLineFactory::GetReferenceLineCreator(
-          reference_line::ReferenceLineType::SlideWindow);
+  {
+    reference_line::ReferenceLineType type;
+    if (common::constants::reference_line_strategy == "slide_window") {
+      type = reference_line::SlideWindow;
+    } else if (common::constants::reference_line_strategy == "b_spline") {
+      type = reference_line::BSpline;
+    } else if (common::constants::reference_line_strategy == "bezier") {
+      type = reference_line::Bezier;
+    } else {
+      type = reference_line::SlideWindow;
+    }
 
+    reference_line_ =
+        reference_line::ReferenceLineFactory::GetReferenceLineCreator(type);
+  }
   RCLCPP_INFO(this->get_logger(),
               "Local planner started. lookahead=%.2f, max_v=%.2f, max_w=%.2f, "
               "max_nearest_search_dist=%.2f, path_density=%.2f",
@@ -90,6 +101,9 @@ size_t LocalPlannerNode::findNearestIndex(const nav_msgs::msg::Path& path,
 
   size_t nearest = last_nearest_idx_;
   double min_dist = std::numeric_limits<double>::infinity();
+  bool has_behind_ego = false;
+  double fx = std::cos(theta);
+  double fy = std::sin(theta);
 
   // Search both forward and backward from the last nearest point so that
   // reverse segments (where the closest point can be behind the vehicle body)
@@ -106,9 +120,22 @@ size_t LocalPlannerNode::findNearestIndex(const nav_msgs::msg::Path& path,
     double dx = path.poses[i].pose.position.x - x;
     double dy = path.poses[i].pose.position.y - y;
     double dist = std::hypot(dx, dy);
-    if (dist < min_dist) {
-      min_dist = dist;
-      nearest = i;
+    double dot = dx * fx + dy * fy;
+
+    if (!has_behind_ego) {
+      if (dot > 0.0 && dist < min_dist) {
+        min_dist = dist;
+        nearest = i;
+      } else if (dot <= 0.0) {
+        min_dist = dist;
+        nearest = i;
+        has_behind_ego = true;
+      }
+    } else {
+      if (dot <= 0.0 && dist < min_dist) {
+        min_dist = dist;
+        nearest = i;
+      }
     }
   }
   return nearest;
@@ -245,9 +272,22 @@ void LocalPlannerNode::planTimerCallback() {
   }
 
   std::call_once(flag, [&]() {
+    local_planner::LocalPlannerType type;
+    if (common::constants::local_path_strategy == "pure_pursuit") {
+      type = local_planner::PURE_PURSUIT;
+    } else if (common::constants::local_path_strategy == "dwa") {
+      type = local_planner::DWA;
+    } else if (common::constants::local_path_strategy == "teb") {
+      type = local_planner::TEB;
+    } else if (common::constants::local_path_strategy == "mpc") {
+      type = local_planner::MPC;
+    } else {
+      type = local_planner::PURE_PURSUIT;
+    }
+
     this->local_planner_ =
-        local_planner::LocalPlannerFactory::CreateLocalPlanner(
-            local_planner::LocalPlannerType::DWA, map_, get_logger());
+        local_planner::LocalPlannerFactory::CreateLocalPlanner(type, map_,
+                                                               get_logger());
     local_planner_->init();
   });
 

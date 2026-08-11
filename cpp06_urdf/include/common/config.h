@@ -10,7 +10,7 @@ static const float vehicle_width = 0.4;
 static const float vehicle_length = 0.5;
 
 /// =============Global planner config================
-static const bool enable_cover_path = true;
+static const bool enable_cover_path = false;
 static const bool enable_edge_path = false;
 static const std::string global_path_strategy = "hybrid_a_star";
 
@@ -56,10 +56,14 @@ static const float penaltyCOD = 2.0;
 /// relevant for collision checking
 static const float dubinsStepSize = 1;
 
+/// =============Reference line config================
+static const std::string reference_line_strategy = "slide_window";
+
 /// =============Local Planner config================
 static const double lookaheadDistance = 0.6;
 static const double maxLinearSpeed = 0.4;
 static const double maxAngularSpeed = 1.0;
+static const std::string local_path_strategy = "dwa";
 
 /// =============TEB Local Planner config================
 static const double teb_dt_ref = 0.5;
