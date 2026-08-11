@@ -1,12 +1,29 @@
 #pragma once
 
-#include <OsqpEigen/OsqpEigen.h>
+#include <g2o/core/block_solver.h>
+#include <g2o/core/optimization_algorithm_levenberg.h>
+#include <g2o/core/robust_kernel_impl.h>
+#include <g2o/core/sparse_optimizer.h>
+#include <g2o/solvers/eigen/linear_solver_eigen.h>
 
 #include <Eigen/Dense>
+#include <memory>
 #include <vector>
 
 #include "map/static_map.h"
 #include "planner/local_planner/local_planner_base.h"
+#include "planner/local_planner/teb_types/edge_acceleration.h"
+#include "planner/local_planner/teb_types/edge_kinematics.h"
+#include "planner/local_planner/teb_types/edge_obstacle.h"
+#include "planner/local_planner/teb_types/edge_shortest_path.h"
+#include "planner/local_planner/teb_types/edge_time_optimal.h"
+#include "planner/local_planner/teb_types/edge_velocity.h"
+#include "planner/local_planner/teb_types/edge_via_point.h"
+#include "planner/local_planner/teb_types/obstacles.h"
+#include "planner/local_planner/teb_types/robot_footprint_model.h"
+#include "planner/local_planner/teb_types/teb_config.h"
+#include "planner/local_planner/teb_types/vertex_pose.h"
+#include "planner/local_planner/teb_types/vertex_timediff.h"
 
 namespace local_planner {
 
@@ -19,72 +36,59 @@ struct Pose2D {
 class TebLocalPlanner : public LocalPlannerBase {
  public:
   TebLocalPlanner(std::shared_ptr<map::StaticMap> map,
-                  const rclcpp::Logger logger)
-      : LocalPlannerBase(map, logger) {}
+                  const rclcpp::Logger logger);
 
   void init() override;
 
   geometry_msgs::msg::Twist getControlCmd() override;
 
-  void setTrajectoryPoints(const std::vector<Pose2D>& points) {
-    trajectory_points_ = points;
-  }
+  std::vector<Pose2D> getOptimizedTrajectory() const;
 
-  std::vector<Pose2D> getOptimizedTrajectory() const {
-    return optimized_trajectory_;
-  }
+  void setEstimateOrient(bool flag) { cfg_.trajectory.estimate_orient = flag; }
 
  private:
-  struct OptimizerConfig {
-    int n_points = 15;
-    double dt_ref = 0.5;
-    double wheelbase = 0.5;
-    double max_linear_speed = 0.4;
-    double max_angular_speed = 1.0;
-    double safety_radius = 0.3;
+  bool isInitialized() const { return initialized_; }
 
-    double w_obstacle = 100.0;
-    double w_smoothness = 50.0;
-    double w_velocity = 30.0;
-    double w_time = 10.0;
-    double w_kinematic = 20.0;
+  void initTrajectory(const std::vector<Pose2D>& ref_points);
 
-    int max_iterations = 50;
-  };
+  void hotStart(const std::vector<Pose2D>& ref_points,
+                const Pose2D& current_pose, const Pose2D& goal_pose);
 
-  void initializePath(const std::vector<Pose2D>& ref_points);
+  void autoResize();
 
-  void buildQPProblem();
+  void buildGraph();
 
-  bool solveQP();
+  bool optimize();
 
-  void extractOptimizedTrajectory();
+  bool extractVelocity(double& v, double& omega);
 
-  bool computeVelocityCommand(const Pose2D& p1, const Pose2D& p2, double& v,
-                              double& omega);
+  void clearGraph();
 
-  OptimizerConfig config_;
+  void pruneTrajectory(const Pose2D& current_pose);
 
-  std::vector<Pose2D> trajectory_points_;
-  std::vector<Pose2D> initial_trajectory_;
-  std::vector<Pose2D> optimized_trajectory_;
+  double distance(const Pose2D& a, const Pose2D& b) const;
 
-  int n_vars_;
-  int n_constraints_;
+  void convertMapObstacles();
 
-  Eigen::VectorXd solution_;
+  teb_local_planner::TebConfig cfg_;
 
-  OsqpEigen::Solver solver_;
+  std::unique_ptr<g2o::SparseOptimizer> optimizer_;
+
+  std::vector<teb_local_planner::VertexPose*> pose_vec_;
+  std::vector<teb_local_planner::VertexTimeDiff*> timediff_vec_;
+
+  std::vector<Pose2D> teb_poses_;
+  std::vector<double> teb_timediffs_;
+
+  std::vector<Pose2D> prev_teb_poses_;
+  std::vector<double> prev_teb_timediffs_;
+  bool initialized_ = false;
+  Pose2D last_goal_pose_;
+
+  std::vector<std::shared_ptr<teb_local_planner::Obstacle>> teb_obstacles_;
+  std::shared_ptr<teb_local_planner::CircularRobotFootprintModel> robot_model_;
+
+  geometry_msgs::msg::Twist last_cmd_;
 };
-
-namespace {
-
-inline double normalizeAngle(double angle) {
-  while (angle > M_PI) angle -= 2 * M_PI;
-  while (angle < -M_PI) angle += 2 * M_PI;
-  return angle;
-}
-
-}  // namespace
 
 }  // namespace local_planner

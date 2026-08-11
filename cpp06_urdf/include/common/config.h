@@ -63,7 +63,7 @@ static const std::string reference_line_strategy = "slide_window";
 static const double lookaheadDistance = 0.6;
 static const double maxLinearSpeed = 0.4;
 static const double maxAngularSpeed = 1.0;
-static const std::string local_path_strategy = "dwa";
+static const std::string local_path_strategy = "teb";
 
 /// =============TEB Local Planner config================
 static const double teb_dt_ref = 0.5;

@@ -17,10 +17,12 @@ find_package(Eigen3 REQUIRED)
 find_package(ompl REQUIRED)
 find_package(osqp REQUIRED)
 find_package(OsqpEigen REQUIRED)
+find_package(g2o REQUIRED HINTS /usr/local)
 
 include_directories(include)
 include_directories(${OMPL_INCLUDE_DIRS})
 include_directories(${EIGEN3_INCLUDE_DIRS})
+include_directories(${g2o_INCLUDE_DIRS})
 
 add_executable(global_planner_node
   src/map/static_map.cpp
@@ -71,7 +73,7 @@ ament_target_dependencies(local_planner_node
   visualization_msgs
 )
 
-target_link_libraries(local_planner_node osqp::osqp OsqpEigen::OsqpEigen)
+target_link_libraries(local_planner_node osqp::osqp OsqpEigen::OsqpEigen g2o::core g2o::stuff g2o::solver_eigen)
 
 install(TARGETS
   global_planner_node
