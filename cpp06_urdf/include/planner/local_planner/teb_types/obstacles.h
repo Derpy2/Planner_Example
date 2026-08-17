@@ -1,11 +1,14 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <memory>
 #include <vector>
 
 #include "common/geometry.h"
 
 namespace teb_local_planner {
+
+typedef std::shared_ptr<Obstacle> ObstaclePtr;
 
 class Obstacle {
  public:
