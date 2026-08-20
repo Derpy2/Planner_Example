@@ -3,4 +3,4 @@ build/
 install/
 log/
 .continue/
-docs/
+temp_docs/
