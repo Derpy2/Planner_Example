@@ -6,6 +6,12 @@
 namespace local_planner {
 void LocalPlannerMPC::init(const int nx, const int nu, const int N, double dt,
                            double v_ref) {
+  solver_.clearSolver();
+  solver_initialized_ = false;
+  solve_failure_count_ = 0;
+  predicted_trajectory_.clear();
+  reference_traj_ = nav_msgs::msg::Path();
+
   nx_ = nx;
   nu_ = nu;
   N_ = N;
@@ -452,7 +458,8 @@ Control LocalPlannerMPC::solveQP(const std::vector<PathPoint>& x_ref,
     solver_.settings()->setRelativeTolerance(1e-3);
 
     if (!solver_.initSolver()) {
-      RCLCPP_INFO(logger_, "OSQP init failed!");
+      RCLCPP_WARN(logger_, "OSQP init failed!");
+      handleSolveFailure();
       return Control{0.0, 0.0};
     }
 
@@ -465,9 +472,11 @@ Control LocalPlannerMPC::solveQP(const std::vector<PathPoint>& x_ref,
   }
 
   if (solver_.solveProblem() != OsqpEigen::ErrorExitFlag::NoError) {
-    RCLCPP_INFO(logger_, "OSQP solve failed!");
+    RCLCPP_WARN(logger_, "OSQP solve failed!");
+    handleSolveFailure();
     return Control{u_ref[0].v, u_ref[0].omega};  // fallback
   }
+  solve_failure_count_ = 0;
 
   // 6. 提取结果
   Eigen::VectorXd sol = solver_.getSolution();
@@ -486,6 +495,21 @@ Control LocalPlannerMPC::solveQP(const std::vector<PathPoint>& x_ref,
   u_opt.v = std::max(u_min_(0), std::min(u_max_(0), u_opt.v));
   u_opt.omega = std::max(u_min_(1), std::min(u_max_(1), u_opt.omega));
   return u_opt;
+}
+
+void LocalPlannerMPC::handleSolveFailure() {
+  ++solve_failure_count_;
+  if (solve_failure_count_ >= kMaxSolveFailures) {
+    RCLCPP_WARN(logger_,
+                "MPC QP solver failed %d times consecutively, "
+                "re-initializing solver.",
+                solve_failure_count_);
+    solver_.clearSolver();
+    solver_initialized_ = false;
+    solve_failure_count_ = 0;
+    predicted_trajectory_.clear();
+    init(nx_, nu_, N_, dt_, v_ref_);
+  }
 }
 
 std::vector<PathPoint> LocalPlannerMPC::predictTrajectory(

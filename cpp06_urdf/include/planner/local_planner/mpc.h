@@ -11,6 +11,7 @@
 
 namespace {
 constexpr double epsilon = 1e-6;
+constexpr int kMaxSolveFailures = 10;
 }
 
 namespace local_planner {
@@ -73,6 +74,9 @@ class LocalPlannerMPC : public LocalPlannerBase {
   std::vector<geometry_msgs::msg::Point> computeVehicleBox(double x, double y,
                                                            double theta);
 
+  // 累计连续求解失败次数，超过阈值后重新初始化求解器
+  void handleSolveFailure();
+
  private:
   int nx_ = 3;          // 状态维度
   int nu_ = 2;          // 控制维度
@@ -94,6 +98,7 @@ class LocalPlannerMPC : public LocalPlannerBase {
   // OSQP求解器
   OsqpEigen::Solver solver_;
   bool solver_initialized_;
+  int solve_failure_count_ = 0;
 
   // 最近一次MPC求解得到的最优预测轨迹（用于可视化）
   std::vector<PathPoint> predicted_trajectory_;
