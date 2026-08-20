@@ -69,11 +69,13 @@ ament_target_dependencies(local_planner_node
   rclcpp
   nav_msgs
   geometry_msgs
+  tf2_ros
+  tf2_geometry_msgs
   Eigen3
   visualization_msgs
 )
 
-target_link_libraries(local_planner_node osqp::osqp OsqpEigen::OsqpEigen g2o::core g2o::stuff g2o::solver_eigen)
+target_link_libraries(local_planner_node osqp::osqp OsqpEigen::OsqpEigen g2o::core g2o::stuff g2o::solver_eigen g2o::solver_csparse)
 
 install(TARGETS
   global_planner_node

@@ -60,7 +60,6 @@ std::vector<Node3D> LocalPlannerDWA::predictTrajectory(
     const double v, const double omega, const Node3D start_node) {
   std::vector<Node3D> traj;
   traj.emplace_back(start_node);
-  const auto& obstacles = map_->obstacles();
 
   for (int i = 0; i < sim_step_; ++i) {
     Node3D next = motionModel(traj.back(), v, omega);

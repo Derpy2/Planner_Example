@@ -53,9 +53,12 @@ class LocalPlannerNode : public rclcpp::Node {
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr global_path_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr local_path_pub_;
+  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr reference_traj_pub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
       dwa_vis_marker_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
+      traj_vis_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
 
   std::unique_ptr<reference_line::ReferenceLineBase> reference_line_;

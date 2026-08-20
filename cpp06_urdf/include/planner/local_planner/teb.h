@@ -10,6 +10,7 @@
 #include <Eigen/Dense>
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "map/static_map.h"
@@ -48,6 +49,9 @@ class TebLocalPlanner : public LocalPlannerBase {
 
   geometry_msgs::msg::Twist getControlCmd() override;
 
+  visualization_msgs::msg::MarkerArray getTrajectoryMarkers(
+      const std::string& frame_id = "map") override;
+
   // std::vector<Pose2D> getOptimizedTrajectory() const;
 
   void setEstimateOrient(bool flag) { cfg_.trajectory.estimate_orient = flag; }
@@ -63,20 +67,25 @@ class TebLocalPlanner : public LocalPlannerBase {
 
   size_t sizeTimeDiffs() const { return timediff_vec_.size(); }
 
-  bool plan(const std::vector<PoseSE2>& initial_plan,
+  bool plan(const PoseSE2& robot_pose,
+            const std::vector<PoseSE2>& initial_plan,
             const geometry_msgs::msg::Twist* start_vel, bool free_goal_vel);
 
   bool getVelocityCommand(double& vx, double& vy, double& omega,
-                          int look_ahead_poses) const;
+                          int look_ahead_poses = 1) const;
 
   void extractVelocity(const PoseSE2& pose1, const PoseSE2& pose2, double dt,
                        double& vx, double& vy, double& omega) const;
 
-  void initTrajectory(const std::vector<PoseSE2>& ref_points);
+  void initTrajectory(const PoseSE2& robot_pose,
+                      const std::vector<PoseSE2>& ref_points);
 
-  void updateAndPruneTEB(std::optional<const PoseSE2&> new_start,
-                         std::optional<const PoseSE2&> new_goal,
+  void updateAndPruneTEB(const PoseSE2& new_start,
+                         std::optional<PoseSE2> new_goal,
                          int min_samples);
+
+  size_t findNearestRefIdx(const Eigen::Vector2d& position,
+                           size_t hint) const;
 
   // Pose function
   PoseSE2& Pose(int index) {
@@ -216,6 +225,8 @@ class TebLocalPlanner : public LocalPlannerBase {
 
   PoseSE2 robot_pose_;  //!< Store current robot pose
   PoseSE2 robot_goal_;
+
+  std::vector<PoseSE2> ref_path_;  //!< Store current reference line
 
   std::vector<VertexPose*> pose_vec_;
   std::vector<VertexTimeDiff*> timediff_vec_;

@@ -82,7 +82,7 @@ class LocalPlannerDWA : public LocalPlannerBase {
   int sim_step_;
 
   double safe_radius = 8.0;
-  double lookahead_dist_ = 10.0;
+  double lookahead_dist_ = 5.0;
 
   double weight_heading_ = 0.5;
   double weight_velocity_ = 0.5;

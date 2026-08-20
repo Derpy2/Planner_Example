@@ -95,8 +95,8 @@ class EdgeDynamicObstacle
                    "setRobotModel() on EdgeDynamicObstacle()");
     const VertexPose* bandpt = static_cast<const VertexPose*>(_vertices[0]);
 
-    double dist = robot_model_->estimateSpatioTemporalDistance(
-        bandpt->pose(), _measurement, t_);
+    double dist = robot_model_->calculateDistance(bandpt->pose(),
+                                                  _measurement);
 
     _error[0] = penaltyBoundFromBelow(dist, cfg_->obstacles.min_obstacle_dist,
                                       cfg_->optim.penalty_epsilon);

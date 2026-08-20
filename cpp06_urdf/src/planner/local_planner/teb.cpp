@@ -31,7 +31,7 @@ TebLocalPlanner::TebLocalPlanner(std::shared_ptr<map::StaticMap> map,
   cfg_.optim.penalty_epsilon = 0.1;
   cfg_.obstacles.min_obstacle_dist = 0.3;
 
-  cfg_.robot_model = std::make_shared<CircularRobotFootprintModel>(0.4);
+  cfg_.robot_model = std::make_shared<CircularRobotFootprintModel>(0.1);
 
   optimizer_ = initOptimizer();
   vel_start_.first = true;
@@ -186,17 +186,69 @@ geometry_msgs::msg::Twist TebLocalPlanner::getControlCmd() {
   geometry_msgs::msg::Twist start_vel;
   start_vel.linear.x = current_twist_.twist.linear.x;
   start_vel.angular.z = current_twist_.twist.angular.z;
-  plan(ref_path, &start_vel, true);
+  ref_path_ = ref_path;
+  plan(robot_pose_, ref_path, &start_vel, true);
 
-  geometry_msgs::msg::TwistStamped cmd_vel;
-
-  cmd_vel.header.stamp = rclcpp::Clock().now();
-  cmd_vel.twist.linear.x = 0;
-  cmd_vel.twist.linear.y = 0;
-  cmd_vel.twist.angular.z = 0;
-  getVelocityCommand(cmd_vel.twist.linear.x, cmd_vel.twist.linear.y,
-                     cmd_vel.twist.angular.z);
+  getVelocityCommand(cmd.linear.x, cmd.linear.y, cmd.angular.z);
   return cmd;
+}
+
+visualization_msgs::msg::MarkerArray TebLocalPlanner::getTrajectoryMarkers(
+    const std::string& frame_id) {
+  visualization_msgs::msg::MarkerArray marker_array;
+
+  if (pose_vec_.empty()) {
+    return marker_array;
+  }
+
+  // 先清空同 namespace 下的旧 marker，避免 trajectory 长度变短时残留。
+  const std::string ns = "teb_trajectory";
+  {
+    visualization_msgs::msg::Marker delete_all;
+    delete_all.header.frame_id = frame_id;
+    delete_all.header.stamp = rclcpp::Clock().now();
+    delete_all.ns = ns;
+    delete_all.action = visualization_msgs::msg::Marker::DELETEALL;
+    marker_array.markers.push_back(delete_all);
+  }
+
+  // 每个 pose 一个 CUBE marker，id 递增，每次覆盖同名空间下相同 id 的 marker。
+  const float box_size = 0.15f;  // 轨迹框尺寸，单位 m
+  const float box_height = 0.05f;
+
+  for (size_t i = 0; i < pose_vec_.size(); ++i) {
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = frame_id;
+    marker.header.stamp = rclcpp::Clock().now();
+    marker.ns = ns;
+    marker.id = static_cast<int>(i);
+    marker.type = visualization_msgs::msg::Marker::CUBE;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+
+    geometry_msgs::msg::Pose pose;
+    pose_vec_[i]->pose().toPoseMsg(pose);
+    marker.pose = pose;
+    marker.pose.position.z = box_height / 2.0;
+
+    marker.scale.x = box_size;
+    marker.scale.y = box_size;
+    marker.scale.z = box_height;
+
+    // 颜色随索引渐变：从绿色过渡到蓝色
+    float ratio =
+        pose_vec_.size() > 1
+            ? static_cast<float>(i) / static_cast<float>(pose_vec_.size() - 1)
+            : 0.0f;
+    marker.color.r = 0.0f;
+    marker.color.g = 1.0f - ratio * 0.5f;
+    marker.color.b = 0.3f + ratio * 0.7f;
+    marker.color.a = 0.8f;
+
+    marker.lifetime = rclcpp::Duration::from_seconds(0.0);
+    marker_array.markers.push_back(marker);
+  }
+
+  return marker_array;
 }
 
 void TebLocalPlanner::setVelocityStart() {
@@ -206,13 +258,13 @@ void TebLocalPlanner::setVelocityStart() {
   vel_start_.second.angular.z = current_twist_.twist.angular.z;
 }
 
-bool TebLocalPlanner::plan(const std::vector<PoseSE2>& initial_plan,
+bool TebLocalPlanner::plan(const PoseSE2& robot_pose,
+                           const std::vector<PoseSE2>& initial_plan,
                            const geometry_msgs::msg::Twist* start_vel,
                            bool free_goal_vel) {
   if (timediff_vec_.empty() || pose_vec_.empty()) {
-    initTrajectory(initial_plan);
+    initTrajectory(robot_pose, initial_plan);
   } else {
-    PoseSE2 start(initial_plan.front());
     PoseSE2 goal(initial_plan.back());
     if (sizePoses() > 0 &&
         (goal.position() - BackPose().position()).norm() <
@@ -220,14 +272,14 @@ bool TebLocalPlanner::plan(const std::vector<PoseSE2>& initial_plan,
         fabs(g2o::normalize_theta(goal.theta() - BackPose().theta())) <
             cfg_.trajectory.force_reinit_new_goal_angular) {
       // actual warm start!
-      updateAndPruneTEB(start, goal, cfg_.trajectory.min_samples);
+      updateAndPruneTEB(robot_pose, goal, cfg_.trajectory.min_samples);
     } else {
       // goal too far away -> reinit
       RCLCPP_DEBUG(logger_,
                    "New goal: distance to existing goal is higher than the "
                    "specified threshold. Reinitalizing trajectories.");
       clearTimedElasticBand();
-      initTrajectory(initial_plan);
+      initTrajectory(robot_pose, initial_plan);
     }
   }
 
@@ -244,7 +296,8 @@ bool TebLocalPlanner::plan(const std::vector<PoseSE2>& initial_plan,
                      cfg_.optim.no_outer_iterations);
 }
 
-void TebLocalPlanner::initTrajectory(const std::vector<PoseSE2>& ref_points) {
+void TebLocalPlanner::initTrajectory(const PoseSE2& robot_pose,
+                                     const std::vector<PoseSE2>& ref_points) {
   int n = static_cast<int>(ref_points.size());
   if (n < 2) {
     RCLCPP_WARN(logger_, "Number of ref_points: %d",
@@ -262,7 +315,7 @@ void TebLocalPlanner::initTrajectory(const std::vector<PoseSE2>& ref_points) {
     return;
   }
 
-  PoseSE2 start(ref_points.front());
+  PoseSE2 start(robot_pose);
   PoseSE2 goal(ref_points.back());
 
   // 添加teb起点
@@ -306,51 +359,93 @@ void TebLocalPlanner::initTrajectory(const std::vector<PoseSE2>& ref_points) {
   setPoseVertexFixed(sizePoses() - 1, true);
 }
 
-void TebLocalPlanner::updateAndPruneTEB(std::optional<const PoseSE2&> new_start,
-                                        std::optional<const PoseSE2&> new_goal,
+void TebLocalPlanner::updateAndPruneTEB(const PoseSE2& new_start,
+                                        std::optional<PoseSE2> new_goal,
                                         int min_samples) {
   // first and simple approach: change only start confs (and virtual start conf
   // for inital velocity) TEST if optimizer can handle this "hard" placement
 
-  if (new_start && sizePoses() > 0) {
-    // find nearest state (using l2-norm) in order to prune the trajectory
-    // (remove already passed states)
-    double dist_cache = (new_start->position() - Pose(0).position()).norm();
-    double dist;
-    // satisfy min_samples, otherwise max 10 samples
-    int lookahead = std::min<int>(sizePoses() - min_samples, 10);
+  // find nearest state (using l2-norm) in order to prune the trajectory
+  // (remove already passed states)
+  double dist_cache = (new_start.position() - Pose(0).position()).norm();
+  double dist;
+  // satisfy min_samples, otherwise max 10 samples
+  int lookahead = std::min<int>(sizePoses() - min_samples, 10);
 
-    int nearest_idx = 0;
-    for (int i = 1; i <= lookahead; ++i) {
-      dist = (new_start->position() - Pose(i).position()).norm();
-      if (dist < dist_cache) {
-        dist_cache = dist;
-        nearest_idx = i;
-      } else {
-        break;
-      }
+  int nearest_idx = 0;
+  for (int i = 1; i <= lookahead; ++i) {
+    dist = (new_start.position() - Pose(i).position()).norm();
+    if (dist < dist_cache) {
+      dist_cache = dist;
+      nearest_idx = i;
+    } else {
+      break;
     }
-
-    // prune trajectory at the beginning (and extrapolate sequences at the end
-    // if the horizon is fixed)
-    if (nearest_idx > 0) {
-      // nearest_idx is equal to the number of samples to be removed (since it
-      // counts from 0 ;-) ) WARNING delete starting at pose 1, and overwrite
-      // the original pose(0) with new_start, since Pose(0) is fixed during
-      // optimization!
-      // delete first states such that the closest state is the new first one
-      deletePoses(1, nearest_idx);
-      // delete corresponding time differences
-      deleteTimeDiffs(1, nearest_idx);
-    }
-
-    // update start
-    Pose(0) = *new_start;
   }
+
+  // prune trajectory at the beginning (and extrapolate sequences at the end
+  // if the horizon is fixed)
+  if (nearest_idx > 0) {
+    // nearest_idx is equal to the number of samples to be removed (since it
+    // counts from 0 ;-) ) WARNING delete starting at pose 1, and overwrite
+    // the original pose(0) with new_start, since Pose(0) is fixed during
+    // optimization!
+    // delete first states such that the closest state is the new first one
+    deletePoses(1, nearest_idx);
+    // delete corresponding time differences
+    deleteTimeDiffs(1, nearest_idx);
+  }
+
+  // update start
+  Pose(0) = new_start;
 
   if (new_goal && sizePoses() > 0) {
     BackPose() = *new_goal;
   }
+
+  // snap intermediate poses onto the current reference line
+  if (ref_path_.size() >= 2 && sizePoses() > 2) {
+    size_t ref_idx = 0;
+    for (int i = 1; i < static_cast<int>(sizePoses()) - 1; ++i) {
+      ref_idx = findNearestRefIdx(Pose(i).position(), ref_idx);
+      Pose(i).position() = ref_path_.at(ref_idx).position();
+      if (cfg_.trajectory.estimate_orient) {
+        double dx, dy;
+        if (ref_idx + 1 < ref_path_.size()) {
+          dx = ref_path_.at(ref_idx + 1).x() - ref_path_.at(ref_idx).x();
+          dy = ref_path_.at(ref_idx + 1).y() - ref_path_.at(ref_idx).y();
+        } else {
+          dx = ref_path_.at(ref_idx).x() - ref_path_.at(ref_idx - 1).x();
+          dy = ref_path_.at(ref_idx).y() - ref_path_.at(ref_idx - 1).y();
+        }
+        Pose(i).theta() = std::atan2(dy, dx);
+      } else {
+        Pose(i).theta() = ref_path_.at(ref_idx).theta();
+      }
+    }
+  }
+}
+
+size_t TebLocalPlanner::findNearestRefIdx(const Eigen::Vector2d& position,
+                                          size_t hint) const {
+  const size_t n = ref_path_.size();
+  if (n == 0) {
+    return 0;
+  }
+  hint = std::min(hint, n - 1);
+  const size_t window = 12;
+  const size_t start = hint > window ? hint - window : 0;
+  const size_t end = std::min(n, hint + window + 1);
+  size_t best = hint;
+  double best_dist = (ref_path_.at(hint).position() - position).squaredNorm();
+  for (size_t i = start; i < end; ++i) {
+    double dist = (ref_path_.at(i).position() - position).squaredNorm();
+    if (dist < best_dist) {
+      best_dist = dist;
+      best = i;
+    }
+  }
+  return best;
 }
 
 bool TebLocalPlanner::optimizeTEB(const int iterations_innerloop,
@@ -1059,7 +1154,7 @@ void TebLocalPlanner::computeCurrentCost(double obst_cost_scale,
     // here the graph is build again, for time efficiency make sure to call this
     // function between buildGraph and Optimize (deleted), but it depends on the
     // application
-    buildGraph();
+    buildGraph(1.0);
     optimizer_->initializeOptimization();
   } else {
     graph_exist_flag = true;
@@ -1114,7 +1209,7 @@ void TebLocalPlanner::convertMapObstacles() {
   teb_obstacles_.clear();
   if (!map_) return;
 
-  auto poly_obstacles = map_->obstacles();
+  auto poly_obstacles = map_->getObstaclesWorld();
   for (const auto& poly : poly_obstacles) {
     if (poly.size() >= 3) {
       teb_obstacles_.push_back(
@@ -1127,7 +1222,7 @@ void TebLocalPlanner::convertMapObstacles() {
   }
 }
 
-void TebLocalPlanner::addTimeDiff(double dt, bool fixed = false) {
+void TebLocalPlanner::addTimeDiff(double dt, bool fixed) {
   assert(dt > 0.0 && "Adding a timediff requires a positive dt");
   VertexTimeDiff* timediff_vertex = new VertexTimeDiff(dt, fixed);
   timediff_vec_.push_back(timediff_vertex);
@@ -1197,10 +1292,8 @@ void TebLocalPlanner::deletePoses(int index, int number) {
   pose_vec_.erase(pose_vec_.begin() + index,
                   pose_vec_.begin() + index + number);
 }
-.
 
-    void
-    TebLocalPlanner::deleteTimeDiffs(int index, int number) {
+void TebLocalPlanner::deleteTimeDiffs(int index, int number) {
   assert(index + number <= timediff_vec_.size());
   for (int i = index; i < index + number; ++i) delete timediff_vec_.at(i);
   timediff_vec_.erase(timediff_vec_.begin() + index,

@@ -64,7 +64,7 @@ struct TebConfig {
     double weight_acc_lim_y = 1;
     double weight_acc_lim_theta = 1;
     double weight_optimaltime = 1;
-    double weight_shortest_path = 0;
+    double weight_shortest_path = 5.0;
     double weight_kinematics_nh = 1000;
     double weight_kinematics_forward_drive = 1;
     double weight_prefer_rotdir = 50;
@@ -73,8 +73,12 @@ struct TebConfig {
   } optim;
 
   struct Obstacles {
-    double min_obstacle_dist = 0.3;
+    double min_obstacle_dist = 0.1;
     double inflation_dist = 0.6;
+    double dynamic_obstacle_inflation_dist = 0.2;
+    double obstacle_proximity_lower_bound = 0.5;
+    double obstacle_proximity_upper_bound = 0.7;
+    double obstacle_proximity_ratio_max_vel = 0.5;
     bool include_dynamic_obstacles = false;
     double obstacle_association_force_inclusion_factor = 1.5;
     double obstacle_association_cutoff_factor = 5;

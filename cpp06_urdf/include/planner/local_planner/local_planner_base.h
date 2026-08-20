@@ -4,6 +4,7 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include "map/static_map.h"
 
@@ -37,6 +38,17 @@ class LocalPlannerBase {
 
   virtual void visualizeSampledTrajectories(
       const std::string& frame_id = "map") {}
+
+  // 最近一次求解使用的参考轨迹（默认空，MPC 实现返回重建后的轨迹）
+  virtual nav_msgs::msg::Path getReferenceTrajectory() const {
+    return nav_msgs::msg::Path();
+  }
+
+  virtual visualization_msgs::msg::MarkerArray getTrajectoryMarkers(
+      const std::string& frame_id = "map") {
+    (void)frame_id;
+    return visualization_msgs::msg::MarkerArray();
+  }
 
  protected:
   std::shared_ptr<map::StaticMap> map_ = nullptr;

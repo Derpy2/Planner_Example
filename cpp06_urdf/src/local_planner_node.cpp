@@ -36,11 +36,15 @@ LocalPlannerNode::LocalPlannerNode() : Node("local_planner_node") {
 
   local_path_pub_ =
       this->create_publisher<nav_msgs::msg::Path>("local_path", 10);
+  reference_traj_pub_ =
+      this->create_publisher<nav_msgs::msg::Path>("/referecne_traj", 10);
   cmd_vel_pub_ =
       this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
   dwa_vis_marker_pub_ =
       this->create_publisher<visualization_msgs::msg::MarkerArray>(
           "dwa_sampled_trajectories", 10);
+  traj_vis_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+      "traj_vis", 10);
 
   timer_ = this->create_wall_timer(
       std::chrono::milliseconds(50),
@@ -302,6 +306,13 @@ void LocalPlannerNode::planTimerCallback() {
   RCLCPP_INFO(this->get_logger(), "Cmd: v=%.2f, omega=%.2f", cmd.linear.x,
               cmd.angular.z);
   cmd_vel_pub_->publish(cmd);
+
+  nav_msgs::msg::Path ref_traj = local_planner_->getReferenceTrajectory();
+  ref_traj.header.stamp = this->now();
+  reference_traj_pub_->publish(ref_traj);
+
+  auto traj_markers = local_planner_->getTrajectoryMarkers("map");
+  traj_vis_pub_->publish(traj_markers);
 
   local_planner_->visualizeSampledTrajectories("map");
 

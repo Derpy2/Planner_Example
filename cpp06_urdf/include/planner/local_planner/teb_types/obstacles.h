@@ -8,8 +8,6 @@
 
 namespace teb_local_planner {
 
-typedef std::shared_ptr<Obstacle> ObstaclePtr;
-
 class Obstacle {
  public:
   enum ObstacleType { POINT, LINE, POLYGON };
@@ -20,6 +18,10 @@ class Obstacle {
   ObstacleType type() const { return type_; }
 
   virtual double minDistance(const Eigen::Vector2d& point) const = 0;
+
+  virtual bool isDynamic() const { return false; }
+
+  virtual Eigen::Vector2d getCentroid() const = 0;
 
  protected:
   ObstacleType type_;
@@ -32,6 +34,8 @@ class PointObstacle : public Obstacle {
   double minDistance(const Eigen::Vector2d& point) const override {
     return (pos_ - point).norm();
   }
+
+  Eigen::Vector2d getCentroid() const override { return pos_; }
 
   const Eigen::Vector2d& position() const { return pos_; }
 
@@ -49,10 +53,20 @@ class PolygonObstacle : public Obstacle {
     return common::pointToPolygonDistance(pt, polygon_);
   }
 
+  Eigen::Vector2d getCentroid() const override {
+    Eigen::Vector2d centroid(0.0, 0.0);
+    for (const auto& p : polygon_) centroid += Eigen::Vector2d(p.x, p.y);
+    if (!polygon_.empty())
+      centroid /= static_cast<double>(polygon_.size());
+    return centroid;
+  }
+
   const common::Polygon2D& polygon() const { return polygon_; }
 
  private:
   common::Polygon2D polygon_;
 };
+
+typedef std::shared_ptr<Obstacle> ObstaclePtr;
 
 }  // namespace teb_local_planner
