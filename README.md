@@ -1,3 +1,7 @@
+# Documentation
+
+本项目所有规划算法（全局规划、参考线平滑、局部规划）的原理与实现介绍见 [docs/read_me.md](docs/read_me.md)。
+
 # Dependencies
 
 系统环境：Ubuntu 22.04 + ROS 2 Humble。
