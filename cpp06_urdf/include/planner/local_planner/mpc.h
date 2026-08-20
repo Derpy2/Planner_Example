@@ -31,13 +31,17 @@ class LocalPlannerMPC : public LocalPlannerBase {
                   const rclcpp::Logger logger)
       : LocalPlannerBase(map, logger) {}
 
-  void init() override { init(3, 2, 20, 0.05, 0.3); }
+  void init() override { init(3, 2, 80, 0.05, 0.3); }
 
   void init(const int nx, const int nu, const int N, double dt, double v_ref);
 
   geometry_msgs::msg::Twist getControlCmd() override;
 
-  void visualizeSampledTrajectories(const std::string& frame_id = "map") override;
+  void visualizeSampledTrajectories(
+      const std::string& frame_id = "map") override;
+
+  // 最近一次重建后从自车位置出发的参考轨迹（用于可视化发布）
+  nav_msgs::msg::Path getReferenceTrajectory() const { return reference_traj_; }
 
  private:
   // 1. 提取参考线轨迹
@@ -52,13 +56,18 @@ class LocalPlannerMPC : public LocalPlannerBase {
   std::vector<Control> computeReferenceControls(
       const std::vector<PathPoint>& ref_traj);
 
+  // 将参考轨迹重建为“自车位姿 → 投影点 → 原路径剩余部分”，并做端点固定平滑
+  std::vector<PathPoint> rebuildReferenceFromEgo(
+      const std::vector<PathPoint>& pts, double ego_x, double ego_y,
+      double ego_yaw);
+
   Control solveQP(const std::vector<PathPoint>& x_ref,
                   const std::vector<Control>& u_ref, const Eigen::VectorXd& x0);
 
   // 根据优化结果提取完整控制序列，并前向仿真得到预测位姿轨迹
-  std::vector<PathPoint> predictTrajectory(
-      const Eigen::VectorXd& sol, const std::vector<Control>& u_ref,
-      const Eigen::VectorXd& x0);
+  std::vector<PathPoint> predictTrajectory(const Eigen::VectorXd& sol,
+                                           const std::vector<Control>& u_ref,
+                                           const Eigen::VectorXd& x0);
 
   // 根据车辆中心位姿生成自车box角点（逆时针）
   std::vector<geometry_msgs::msg::Point> computeVehicleBox(double x, double y,
@@ -88,6 +97,9 @@ class LocalPlannerMPC : public LocalPlannerBase {
 
   // 最近一次MPC求解得到的最优预测轨迹（用于可视化）
   std::vector<PathPoint> predicted_trajectory_;
+
+  // 最近一次重建后的参考轨迹（从自车位置出发，用于可视化发布）
+  nav_msgs::msg::Path reference_traj_;
 };
 
 }  // namespace local_planner

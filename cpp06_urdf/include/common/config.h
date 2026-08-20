@@ -57,13 +57,13 @@ static const float penaltyCOD = 2.0;
 static const float dubinsStepSize = 1;
 
 /// =============Reference line config================
-static const std::string reference_line_strategy = "slide_window";
+static const std::string reference_line_strategy = "b_spline";
 
 /// =============Local Planner config================
 static const double lookaheadDistance = 0.6;
 static const double maxLinearSpeed = 0.4;
 static const double maxAngularSpeed = 1.0;
-static const std::string local_path_strategy = "teb";
+static const std::string local_path_strategy = "mpc";
 
 /// =============TEB Local Planner config================
 static const double teb_dt_ref = 0.5;

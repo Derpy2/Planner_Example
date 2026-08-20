@@ -1,5 +1,8 @@
 #include "planner/local_planner/mpc.h"
 
+#include <cmath>
+#include <limits>
+
 namespace local_planner {
 void LocalPlannerMPC::init(const int nx, const int nu, const int N, double dt,
                            double v_ref) {
@@ -9,7 +12,7 @@ void LocalPlannerMPC::init(const int nx, const int nu, const int N, double dt,
   dt_ = dt;
   v_ref_ = v_ref;
   n_var_ = (N + 1) * nx + N * nu;
-  n_constr_ = N * nx + n_var_;
+  n_constr_ = (N + 1) * nx + n_var_;
 
   // 权重矩阵初始化
   Q_ = Eigen::MatrixXd::Zero(nx_, nx_);
@@ -118,11 +121,115 @@ std::vector<Control> LocalPlannerMPC::computeReferenceControls(
   return u_ref;
 }
 
+std::vector<PathPoint> LocalPlannerMPC::rebuildReferenceFromEgo(
+    const std::vector<PathPoint>& pts, double ego_x, double ego_y,
+    double ego_yaw) {
+  if (pts.size() < 2) {
+    return pts;
+  }
+
+  // 1. 逐段投影，找自车到参考线最近的点
+  size_t best_seg = 0;
+  double best_t = 0.0;
+  double best_dist = std::numeric_limits<double>::infinity();
+  for (size_t i = 0; i + 1 < pts.size(); ++i) {
+    double dx = pts[i + 1].x - pts[i].x;
+    double dy = pts[i + 1].y - pts[i].y;
+    double len2 = dx * dx + dy * dy;
+    if (len2 < epsilon) {
+      continue;
+    }
+    double t = ((ego_x - pts[i].x) * dx + (ego_y - pts[i].y) * dy) / len2;
+    t = std::max(0.0, std::min(1.0, t));
+    double dist =
+        std::hypot(pts[i].x + t * dx - ego_x, pts[i].y + t * dy - ego_y);
+    if (dist < best_dist) {
+      best_dist = dist;
+      best_seg = i;
+      best_t = t;
+    }
+  }
+
+  // 2. 拼接：自车位姿 → 投影点 → 原路径剩余部分
+  PathPoint ego;
+  ego.x = ego_x;
+  ego.y = ego_y;
+  ego.theta = ego_yaw;
+
+  std::vector<PathPoint> rebuilt;
+  rebuilt.push_back(ego);
+
+  if (best_dist >= 1e-3) {
+    PathPoint proj;
+    proj.x = pts[best_seg].x + best_t * (pts[best_seg + 1].x - pts[best_seg].x);
+    proj.y = pts[best_seg].y + best_t * (pts[best_seg + 1].y - pts[best_seg].y);
+    double dtheta = common::normalizeAngleDiff(pts[best_seg + 1].theta -
+                                               pts[best_seg].theta);
+    proj.theta = pts[best_seg].theta + best_t * dtheta;
+    rebuilt.push_back(proj);
+  }
+
+  size_t start = best_seg + 1;
+  if (best_t > 1.0 - 1e-6 && start + 1 < pts.size() && rebuilt.size() > 1) {
+    ++start;  // 投影点与 pts[best_seg + 1] 重合，避免重复
+  }
+  for (size_t i = start; i < pts.size(); ++i) {
+    rebuilt.push_back(pts[i]);
+  }
+
+  // 3. 端点固定平滑：首点（自车）与尾点不动，内部点窗口均值
+  const int iterations = 3;
+  const int half_window = 2;
+  for (int iter = 0; iter < iterations; ++iter) {
+    std::vector<PathPoint> smoothed = rebuilt;
+    for (size_t i = 1; i + 1 < rebuilt.size(); ++i) {
+      double sum_x = 0.0;
+      double sum_y = 0.0;
+      double sum_sin = 0.0;
+      double sum_cos = 0.0;
+      int count = 0;
+      for (int j = -half_window; j <= half_window; ++j) {
+        int idx = static_cast<int>(i) + j;
+        if (idx >= 0 && idx < static_cast<int>(rebuilt.size())) {
+          sum_x += rebuilt[idx].x;
+          sum_y += rebuilt[idx].y;
+          sum_sin += std::sin(rebuilt[idx].theta);
+          sum_cos += std::cos(rebuilt[idx].theta);
+          ++count;
+        }
+      }
+      smoothed[i].x = sum_x / count;
+      smoothed[i].y = sum_y / count;
+      smoothed[i].theta = std::atan2(sum_sin, sum_cos);
+    }
+    rebuilt = smoothed;
+  }
+
+  return rebuilt;
+}
+
 geometry_msgs::msg::Twist LocalPlannerMPC::getControlCmd() {
   std::vector<PathPoint> pts = extractPathPoints(smoothed_local_);
+  pts = rebuildReferenceFromEgo(
+      pts, current_pose_.pose.position.x, current_pose_.pose.position.y,
+      common::yawFromQuaternion(current_pose_.pose.orientation));
   std::vector<double> s = computeArcLength(pts);
   std::vector<PathPoint> x_ref = resamplePath(pts, s);
   std::vector<Control> u_ref = computeReferenceControls(x_ref);
+
+  // 保存重建后的参考轨迹用于可视化发布
+  reference_traj_.header.frame_id = "map";
+  reference_traj_.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+  reference_traj_.poses.clear();
+  for (const auto& pt : x_ref) {
+    geometry_msgs::msg::PoseStamped pose;
+    pose.pose.position.x = pt.x;
+    pose.pose.position.y = pt.y;
+    pose.pose.position.z = 0.0;
+    pose.pose.orientation.z = std::sin(pt.theta / 2.0);
+    pose.pose.orientation.w = std::cos(pt.theta / 2.0);
+    reference_traj_.poses.push_back(pose);
+  }
 
   // 设置当前状态
   Eigen::VectorXd x0(nx_);
@@ -178,16 +285,16 @@ Control LocalPlannerMPC::solveQP(const std::vector<PathPoint>& x_ref,
     B(1, 0) = dt_ * std::sin(theta_k);
     B(2, 1) = dt_;
 
-    Eigen::VectorXd xk(nx_), xk1(nx_), uk(nu_);
-    xk << x_ref[k].x, x_ref[k].y, x_ref[k].theta;
-    xk1 << x_ref[k + 1].x, x_ref[k + 1].y, x_ref[k + 1].theta;
-    uk << u_ref[k].v, u_ref[k].omega;
+    // Eigen::VectorXd xk(nx_), xk1(nx_), uk(nu_);
+    // xk << x_ref[k].x, x_ref[k].y, x_ref[k].theta;
+    // xk1 << x_ref[k + 1].x, x_ref[k + 1].y, x_ref[k + 1].theta;
+    // uk << u_ref[k].v, u_ref[k].omega;
 
-    Eigen::VectorXd d = xk1 - A * xk - B * uk;
+    // Eigen::VectorXd d = xk1 - A * xk - B * uk;
 
     A_vec[k] = A;
     B_vec[k] = B;
-    d_vec[k] = d;
+    // d_vec[k] = d;
   }
 
   // 2. 构造Hessian
@@ -279,13 +386,13 @@ Control LocalPlannerMPC::solveQP(const std::vector<PathPoint>& x_ref,
     }
 
     for (int i = 0; i < nx_; ++i) {
-      l(row + i) = d_vec[k](i);
-      u(row + i) = d_vec[k](i);
+      l(row + i) = 0;
+      u(row + i) = 0;
     }
   }
 
   // 3.3 边界约束
-  int ineq_start = N_ * nx_;
+  int ineq_start = (N_ + 1) * nx_;
   for (int k = 0; k <= N_; ++k) {
     int x_col = k * (nx_ + nu_);
     int u_col = x_col + nx_;
@@ -300,7 +407,10 @@ Control LocalPlannerMPC::solveQP(const std::vector<PathPoint>& x_ref,
       } else if (i == 1) {
         xref_val = x_ref[k].y;
       } else {
-        xref_val = x_ref[k].theta;
+        // xref_val = x_ref[k].theta;
+        l(row_x + i) = x_min_(i);
+        u(row_x + i) = x_max_(i);
+        continue;
       }
 
       l(row_x + i) = x_min_(i) - xref_val;
